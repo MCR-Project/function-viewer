@@ -1,0 +1,979 @@
+/* ============ Function Viewer, blueprint theme ============ */
+
+:root {
+  --bg: #0b0f14;
+  --bg-grid: #1b2634;
+  --panel: #11161e;
+  --panel-2: #161d27;
+  --card: rgba(15, 20, 27, 0.94);
+  --border: #263141;
+  --border-strong: #35455c;
+  --text: #d6e2f0;
+  --text-dim: #8497ad;
+  --text-faint: #5a6b80;
+  --accent: #35c9dd;
+  --green: #3fd97f;
+  --red: #f4576b;
+  --lock: #f0b849;
+
+  --font-ui: "Chakra Petch", sans-serif;
+  --font-code: "JetBrains Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #26313f;
+  border-radius: 5px;
+  border: 2px solid var(--panel);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app {
+  display: flex;
+  height: 100%;
+}
+
+/* ============ Sidebar ============ */
+
+.sidebar {
+  width: 320px;
+  min-width: 320px;
+  background: linear-gradient(180deg, var(--panel) 0%, #0d1219 100%);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.sidebar-brand {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-brand .brand-marks {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar-brand .brand-logo {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-brand .brand-github {
+  display: flex;
+  align-items: center;
+  color: var(--text-faint);
+  transition: color 0.15s;
+}
+
+.sidebar-brand .brand-github:hover {
+  color: var(--accent);
+}
+
+.sidebar-brand h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.sidebar-brand h1 span {
+  color: var(--accent);
+}
+
+.sidebar-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.path-row {
+  display: flex;
+  gap: 6px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-code);
+  font-size: 12px;
+  padding: 7px 9px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(53, 201, 221, 0.25);
+}
+
+.btn.toggled {
+  background: rgba(53, 201, 221, 0.16);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: none;
+}
+.btn:disabled:hover {
+  border-color: var(--border-strong);
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #10404a, #0c2f38);
+  border-color: #2a7f92;
+  color: #9beaf5;
+}
+
+.btn-danger:hover {
+  border-color: var(--red);
+  box-shadow: 0 0 10px rgba(244, 87, 107, 0.25);
+}
+
+.btn-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.btn-row .btn {
+  flex: 1;
+}
+
+.error-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(244, 87, 107, 0.4);
+  background: rgba(244, 87, 107, 0.08);
+  border-radius: 6px;
+  color: #ff9daa;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.hint {
+  color: var(--text-faint);
+  font-size: 11px;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Search */
+
+.search-results {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.search-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid #151d28;
+}
+.search-result:last-child {
+  border-bottom: none;
+}
+.search-result:hover {
+  background: var(--panel-2);
+}
+
+.search-result .fn-name {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result .fn-file {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 5px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.icon-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* File tree */
+
+.file-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 6px 20px;
+}
+
+.tree-file > .tree-row {
+  font-weight: 600;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  user-select: none;
+}
+
+.tree-row:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.tree-row .chevron {
+  width: 10px;
+  font-size: 9px;
+  color: var(--text-faint);
+  transition: transform 0.12s;
+  flex-shrink: 0;
+}
+.tree-row .chevron.open {
+  transform: rotate(90deg);
+}
+
+.tree-row .file-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.tree-row .folder-glyph {
+  font-size: 11px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.tree-row .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-code);
+}
+
+.tree-row .count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.tree-fn .label {
+  font-size: 12px;
+}
+
+.tree-error {
+  color: var(--red);
+  font-size: 10px;
+  margin-left: auto;
+}
+
+/* Status dot (shared: tree + cards) */
+
+.status-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  position: relative;
+  transition: box-shadow 0.15s, background 0.15s, transform 0.1s;
+}
+
+/* invisible extension of the click target */
+.status-dot::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+}
+
+.status-dot:hover {
+  transform: scale(1.15);
+}
+
+.status-dot.on {
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(63, 217, 127, 0.8), inset 0 -3px 6px rgba(0, 0, 0, 0.35);
+}
+
+.status-dot.off {
+  background: var(--red);
+  box-shadow: 0 0 8px rgba(244, 87, 107, 0.5), inset 0 -3px 6px rgba(0, 0, 0, 0.35);
+}
+
+.tree-row .status-dot {
+  width: 13px;
+  height: 13px;
+}
+
+.tree-row .status-dot::after {
+  inset: -5px;
+}
+
+/* ============ Canvas / React Flow ============ */
+
+.canvas-wrap {
+  flex: 1;
+  position: relative;
+  background: var(--bg);
+}
+
+.react-flow__attribution {
+  background: transparent;
+  color: var(--text-faint);
+}
+
+/* Seamless topbar overlaying the canvas */
+
+.canvas-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(11, 15, 20, 0.9) 0%, rgba(11, 15, 20, 0.55) 60%, transparent 100%);
+  pointer-events: none;
+}
+
+.canvas-topbar .topbar-root {
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+  min-width: 0;
+}
+
+.canvas-topbar .topbar-actions {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+
+/* Reorganize: button with a mode slider underneath */
+
+.reorg-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.mode-slider {
+  position: relative;
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.mode-slider-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  background: linear-gradient(180deg, #10404a, #0c2f38);
+  border: 1px solid #2a7f92;
+  border-radius: 999px;
+  transition: transform 0.2s ease;
+}
+
+.mode-slider.folder .mode-slider-thumb {
+  transform: translateX(100%);
+}
+
+.mode-slider button {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 999px;
+  transition: color 0.15s;
+}
+
+.mode-slider button:disabled {
+  cursor: default;
+}
+
+.mode-slider button.active {
+  color: #9beaf5;
+}
+
+.mode-slider button:not(.active):hover {
+  color: var(--text);
+}
+
+/* Folder-mode grouping frames */
+
+/* React Flow inline-hides nodes (visibility: hidden) until it has measured
+   their handles; a handle-less decorative node never satisfies that, so
+   force it visible, we already control its exact size/position ourselves. */
+.react-flow__node.folder-node-wrapper {
+  visibility: visible !important;
+}
+
+/* A literal folder: a tab attached to the top-left corner of a rounded body,
+   like a manila folder icon, tab and body share the same accent color so
+   they read as one continuous shape. */
+
+.folder-frame {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.folder-frame .folder-tab {
+  position: absolute;
+  top: 0;
+  left: 14px;
+  height: 26px;
+  max-width: calc(100% - 28px);
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--folder-color, var(--text-dim)) 85%, white);
+  background: color-mix(in srgb, var(--folder-color, var(--border-strong)) 20%, var(--bg));
+  border: 1.5px solid color-mix(in srgb, var(--folder-color, var(--border-strong)) 60%, var(--border-strong));
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  z-index: 1;
+  /* the wrapper is pointer-events:none (see .folder-node-wrapper below) so
+     the rest of the folder doesn't block panning or the cards under it,
+     re-enable just the tab so it can be grabbed and dragged. */
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.folder-frame .folder-tab:active {
+  cursor: grabbing;
+}
+
+.folder-frame .folder-body {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1.5px solid color-mix(in srgb, var(--folder-color, var(--border-strong)) 55%, var(--border-strong));
+  border-radius: 3px 14px 14px 14px;
+  background: color-mix(in srgb, var(--folder-color, var(--border-strong)) 6%, transparent);
+}
+
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.empty-state .glyph {
+  font-size: 40px;
+  opacity: 0.35;
+}
+
+.empty-state .title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.empty-state .sub {
+  font-size: 12px;
+  color: var(--text-faint);
+  max-width: 340px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* Edges: glowing wires */
+
+.react-flow__edge-path {
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.react-flow__edge:hover .react-flow__edge-path,
+.react-flow__edge.edge-active .react-flow__edge-path {
+  stroke-width: 3;
+  stroke-dasharray: 8 4;
+  animation: wire-flow 0.5s linear infinite;
+}
+
+@keyframes wire-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+/* ============ Function card ============ */
+
+.fn-card {
+  min-width: 380px;
+  /* size to the widest code line so every call pin stays visible */
+  width: max-content;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font-family: var(--font-code);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  overflow: visible;
+  transition: box-shadow 0.2s, border-color 0.2s, opacity 0.2s;
+}
+
+.fn-card.active {
+  border-color: color-mix(in srgb, var(--cat) 65%, var(--border-strong));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 18px color-mix(in srgb, var(--cat) 28%, transparent);
+}
+
+.fn-card.inactive {
+  opacity: 0.62;
+}
+
+.fn-card.selected {
+  border-color: var(--accent);
+}
+
+.fn-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border-radius: 9px 9px 0 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cat) 42%, #10151d) 0%, #10151d 85%);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.fn-header .fn-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  /* don't let a long signature widen the card; code decides the width */
+  max-width: 540px;
+  /* push the flow buttons to the right edge, however wide the card is */
+  margin-right: auto;
+}
+
+.fn-header .fn-name {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fn-header .fn-name .async-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--lock);
+  border: 1px solid var(--lock);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-right: 6px;
+  vertical-align: 2px;
+  letter-spacing: 0.08em;
+}
+
+.fn-header .fn-sig {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text) 80%, var(--cat));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fn-sig .p-name {
+  color: var(--text);
+}
+.fn-sig .p-ann {
+  color: var(--text-dim);
+}
+.fn-sig .p-ret {
+  color: #9beaf5;
+}
+
+.fn-header .flow-btn {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  color: #cfe3ff;
+  font-size: 11px;
+  padding: 3px 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.fn-header .flow-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 8px rgba(53, 201, 221, 0.4);
+}
+
+/* Docstring */
+
+.fn-doc {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.015);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.fn-doc .doc-summary,
+.fn-doc .doc-rest {
+  /* wrap prose instead of widening the card */
+  max-width: 600px;
+}
+
+.fn-doc .doc-summary {
+  color: var(--text);
+  font-style: italic;
+}
+
+.fn-doc .doc-rest {
+  margin-top: 6px;
+  white-space: pre-wrap;
+  font-size: 11px;
+}
+
+.fn-doc .doc-section {
+  color: var(--accent);
+  font-weight: 700;
+  font-style: normal;
+}
+
+.fn-doc .doc-more {
+  color: var(--text-faint);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+/* Code */
+
+.fn-code {
+  padding: 8px 0 10px;
+}
+
+.code-line {
+  display: flex;
+  align-items: baseline;
+  position: relative;
+  padding: 0 18px 0 0;
+  min-height: 19px;
+  line-height: 19px;
+}
+
+.code-line .ln {
+  width: 40px;
+  text-align: right;
+  padding-right: 10px;
+  color: var(--text-faint);
+  font-size: 10px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.code-line pre {
+  margin: 0;
+  font-family: var(--font-code);
+  font-size: 12px;
+  white-space: pre;
+  color: var(--text);
+}
+
+.code-line.has-call {
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--cat) 10%, transparent) 100%);
+}
+
+.code-line.has-call .ln {
+  color: var(--cat);
+  font-weight: 700;
+}
+
+/* Prism token colors (GitHub-dark-ish) */
+
+.token.keyword {
+  color: #ff7b72;
+}
+.token.function {
+  color: #d2a8ff;
+}
+.token.class-name {
+  color: #ffa657;
+}
+.token.string,
+.token.triple-quoted-string {
+  color: #a5d6a2;
+}
+.token.number {
+  color: #79c0ff;
+}
+.token.comment {
+  color: #6e7c8f;
+  font-style: italic;
+}
+.token.builtin {
+  color: #ffa657;
+}
+.token.boolean {
+  color: #79c0ff;
+}
+.token.operator {
+  color: #ff7b72;
+}
+.token.decorator,
+.token.punctuation.decorator {
+  color: #d2a8ff;
+}
+
+/* Handles: blueprint-style pins */
+
+.pin {
+  width: 10px !important;
+  height: 10px !important;
+  background: var(--bg) !important;
+  border: 2px solid var(--cat, var(--accent)) !important;
+  border-radius: 50% !important;
+}
+
+.pin.pin-out {
+  right: -5px !important;
+}
+
+.pin.pin-in {
+  left: -6px !important;
+  top: 18px !important;
+  background: var(--cat, var(--accent)) !important;
+}
+
+/* ============ Path browser modal ============ */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 10, 0.7);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  width: 480px;
+  max-height: 70vh;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header .modal-path {
+  flex: 1;
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.modal-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.modal-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: var(--font-code);
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.modal-entry:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.modal-entry .glyph {
+  font-size: 13px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+}
+
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--text-faint);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
