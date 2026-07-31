@@ -1,5 +1,9 @@
 # Function Viewer
 
+<div align="center">
+  <img src="frontend/public/favicon.png" alt="Function Viewer logo" />
+</div>
+
 ## Overview
 
 Function Viewer visualizes how the functions of a Python project call each other, styled like an Unreal Engine Blueprint graph. Every function is a draggable card showing its signature, docstring, and full syntax highlighted source, connected by glowing wires that trace each real call in the code.
