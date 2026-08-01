@@ -65,4 +65,9 @@ The frontend only talks to the backend over HTTP, with no browser-only file APIs
 
 Every PR into `main` runs two required checks (`.github/workflows/pr-checks.yml`): a frontend build and a backend build-and-run (health check against `/api/health`).
 
-Deployment is a single Docker image (`Dockerfile`) that builds the frontend and bundles it with the backend, which serves it at `/`. `render.yaml` describes the Render web service; once connected to this repo, Render rebuilds and redeploys automatically on every push to `main`.
+On every push to `main`, two deployments happen automatically:
+
+- **Backend**: a single Docker image (`Dockerfile`) that builds the frontend and bundles it with the backend, which serves it at `/`. `render.yaml` describes the Render web service; once connected to this repo, Render rebuilds and redeploys on every push. Live at https://function-viewer.onrender.com.
+- **Frontend**: `.github/workflows/deploy-pages.yml` builds `frontend/` with `VITE_API_URL` pointed at the Render backend above and publishes it to GitHub Pages. Live at https://mcr-project.github.io/function-viewer/.
+
+The two are independent: the Render deploy is self-contained (backend serving its own built frontend), while the Pages site is a separate static build of the same frontend wired to the same Render API.
