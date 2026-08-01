@@ -176,17 +176,16 @@ class _CallCollector(ast.NodeVisitor):
 
 
 class Analyzer:
-    def __init__(self, root: str):
-        self.root = os.path.abspath(root)
-        self.base_dir = os.path.dirname(self.root) if os.path.isfile(self.root) else self.root
+    def __init__(self, sources: dict[str, str], root: str = ""):
+        """sources: rel_path (forward slashes) -> file content, already read."""
+        self.sources = sources
+        self.root = root
         self.modules: dict[str, ModuleInfo] = {}  # dotted module name -> info
         self.functions: dict[str, FunctionInfo] = {}
         self.file_errors: dict[str, str] = {}  # rel_path -> error message
         self.file_functions: dict[str, list[str]] = {}  # rel_path -> [function ids]
 
     def analyze(self) -> dict:
-        if not os.path.exists(self.root):
-            raise FileNotFoundError(self.root)
         self._parse_files()
         self._resolve_calls()
         return self._to_response()
@@ -194,14 +193,11 @@ class Analyzer:
     # -- pass 1: parse everything, register functions and imports --
 
     def _parse_files(self) -> None:
-        for abs_path in _collect_py_files(self.root):
-            rel_path = os.path.relpath(abs_path, self.base_dir).replace(os.sep, "/")
+        for rel_path, source in sorted(self.sources.items()):
             self.file_functions.setdefault(rel_path, [])
             try:
-                with open(abs_path, "r", encoding="utf-8", errors="replace") as fh:
-                    source = fh.read()
                 tree = ast.parse(source)
-            except (SyntaxError, ValueError, OSError) as exc:
+            except (SyntaxError, ValueError) as exc:
                 self.file_errors[rel_path] = f"{type(exc).__name__}: {exc}"
                 continue
 
@@ -354,8 +350,40 @@ class Analyzer:
         }
 
 
+def _collect_disk_sources(root: str) -> tuple[dict[str, str], dict[str, str]]:
+    """rel_path (forward slashes) -> content for .py files under root, plus rel_path -> read error."""
+    abs_root = os.path.abspath(root)
+    base_dir = os.path.dirname(abs_root) if os.path.isfile(abs_root) else abs_root
+    sources: dict[str, str] = {}
+    errors: dict[str, str] = {}
+    for abs_path in _collect_py_files(abs_root):
+        rel_path = os.path.relpath(abs_path, base_dir).replace(os.sep, "/")
+        try:
+            with open(abs_path, "r", encoding="utf-8", errors="replace") as fh:
+                sources[rel_path] = fh.read()
+        except OSError as exc:
+            errors[rel_path] = f"{type(exc).__name__}: {exc}"
+    return sources, errors
+
+
 def analyze_path(path: str) -> dict:
-    return Analyzer(path).analyze()
+    """Analyze a project living on this machine's filesystem (local script/CLI use)."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(path)
+    sources, read_errors = _collect_disk_sources(path)
+    result = Analyzer(sources, root=os.path.abspath(path)).analyze()
+    if read_errors:
+        known = {f["path"] for f in result["files"]}
+        for rel_path, msg in read_errors.items():
+            if rel_path not in known:
+                result["files"].append({"path": rel_path, "functions": [], "error": msg})
+        result["files"].sort(key=lambda f: f["path"])
+    return result
+
+
+def analyze_sources(sources: dict[str, str], root: str = "") -> dict:
+    """Analyze in-memory sources, e.g. files picked and read in the browser."""
+    return Analyzer(sources, root=root).analyze()
 
 
 if __name__ == "__main__":

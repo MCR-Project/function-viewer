@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { analyze } from "./api";
+import { analyze, type FileUpload } from "./api";
 import { findEntryPoint, reachableFrom, reachableUp } from "./flow";
 import type { Graph } from "./types";
 
@@ -20,7 +20,7 @@ interface ViewerState {
   /** When on, inactive ("led-to") functions are not rendered at all. */
   hideInactive: boolean;
 
-  load: (path: string) => Promise<void>;
+  load: (root: string, files: FileUpload[]) => Promise<void>;
   toggle: (id: string) => void;
   enable: (id: string) => void;
   enableAll: () => void;
@@ -41,10 +41,10 @@ export const useViewer = create<ViewerState>((set, get) => ({
   layoutMode: "flow",
   hideInactive: false,
 
-  load: async (path: string) => {
+  load: async (root: string, files: FileUpload[]) => {
     set({ loading: true, error: null });
     try {
-      const graph = await analyze(path);
+      const graph = await analyze(root, files);
       const entry = findEntryPoint(graph);
       set({
         graph,

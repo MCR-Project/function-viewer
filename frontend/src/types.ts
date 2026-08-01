@@ -45,11 +45,3 @@ export interface Graph {
   functions: Record<string, FunctionInfo>;
   edges: CallEdge[];
 }
-
-export interface BrowseResult {
-  path: string;
-  parent: string | null;
-  dirs: string[];
-  files: string[];
-  home: string;
-}
