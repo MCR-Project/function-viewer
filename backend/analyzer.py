@@ -279,6 +279,17 @@ class Analyzer:
                     info.calls.append(target)
             del info._node  # type: ignore[attr-defined]
 
+    def _resolve_class(self, name: str, mod: ModuleInfo) -> tuple[ModuleInfo, str] | None:
+        """If `name` refers to a class visible in `mod` (defined locally or imported), return (owning module, class name)."""
+        if name in mod.classes:
+            return mod, name
+        if name in mod.from_imports:
+            src_module, original = mod.from_imports[name]
+            target_mod = self.modules.get(src_module)
+            if target_mod and original in target_mod.classes:
+                return target_mod, original
+        return None
+
     def _make_resolver(self, mod: ModuleInfo):
         def resolve(func: ast.expr, class_name: str | None) -> str | None:
             # foo(...)
@@ -287,41 +298,48 @@ class Analyzer:
                 if name in mod.top_level:
                     return mod.top_level[name]
                 # calling a class constructor -> its __init__
-                if name in mod.classes:
-                    return mod.classes[name].get("__init__")
+                ref = self._resolve_class(name, mod)
+                if ref:
+                    return ref[0].classes[ref[1]].get("__init__")
                 if name in mod.from_imports:
                     src_module, original = mod.from_imports[name]
                     target_mod = self.modules.get(src_module)
-                    if target_mod:
-                        if original in target_mod.top_level:
-                            return target_mod.top_level[original]
-                        if original in target_mod.classes:
-                            return target_mod.classes[original].get("__init__")
+                    if target_mod and original in target_mod.top_level:
+                        return target_mod.top_level[original]
                 return None
-            
-            # something.attr(...)
-            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-                base, attr = func.value.id, func.attr
-                # self.method()
-                if base == "self" and class_name and class_name in mod.classes:
-                    return mod.classes[class_name].get(attr)
-                # mod_alias.func()
-                target_module = None
-                if base in mod.module_aliases:
-                    target_module = mod.module_aliases[base]
-                elif base in mod.from_imports:
-                    # `from pkg import mod` -> base refers to a module
-                    src_module, original = mod.from_imports[base]
-                    dotted = f"{src_module}.{original}" if src_module else original
-                    if dotted in self.modules:
-                        target_module = dotted
-                if target_module and target_module in self.modules:
-                    target_mod = self.modules[target_module]
-                    if attr in target_mod.top_level:
-                        return target_mod.top_level[attr]
-                    if attr in target_mod.classes and "__init__" in target_mod.classes[attr]:
-                        return target_mod.classes[attr]["__init__"]
-                return None
+
+            if isinstance(func, ast.Attribute):
+                # ClassName(...).method() - chained straight off a constructor call, e.g.
+                # Analyzer(sources).analyze(): the outer call's receiver is itself a Call.
+                if isinstance(func.value, ast.Call) and isinstance(func.value.func, ast.Name):
+                    ref = self._resolve_class(func.value.func.id, mod)
+                    if ref:
+                        return ref[0].classes[ref[1]].get(func.attr)
+                    return None
+
+                # something.attr(...)
+                if isinstance(func.value, ast.Name):
+                    base, attr = func.value.id, func.attr
+                    # self.method()
+                    if base == "self" and class_name and class_name in mod.classes:
+                        return mod.classes[class_name].get(attr)
+                    # mod_alias.func()
+                    target_module = None
+                    if base in mod.module_aliases:
+                        target_module = mod.module_aliases[base]
+                    elif base in mod.from_imports:
+                        # `from pkg import mod` -> base refers to a module
+                        src_module, original = mod.from_imports[base]
+                        dotted = f"{src_module}.{original}" if src_module else original
+                        if dotted in self.modules:
+                            target_module = dotted
+                    if target_module and target_module in self.modules:
+                        target_mod = self.modules[target_module]
+                        if attr in target_mod.top_level:
+                            return target_mod.top_level[attr]
+                        if attr in target_mod.classes and "__init__" in target_mod.classes[attr]:
+                            return target_mod.classes[attr]["__init__"]
+                    return None
             return None
 
         return resolve
