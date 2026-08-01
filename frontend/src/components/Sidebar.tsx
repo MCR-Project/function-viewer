@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { collectPyFiles } from "../localFiles";
 import { useViewer } from "../store";
 import { FileTree } from "./FileTree";
-import { PathBrowser } from "./PathBrowser";
 import { SearchBar } from "./SearchBar";
 
 export function Sidebar() {
@@ -12,11 +12,21 @@ export function Sidebar() {
   const enableAll = useViewer((s) => s.enableAll);
   const disableAll = useViewer((s) => s.disableAll);
 
-  const [path, setPath] = useState("");
-  const [browsing, setBrowsing] = useState(false);
+  const [selection, setSelection] = useState("");
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const submit = () => {
-    if (path.trim()) load(path.trim());
+  // webkitdirectory/directory aren't standard JSX attributes, so set them imperatively.
+  useEffect(() => {
+    folderInputRef.current?.setAttribute("webkitdirectory", "");
+    folderInputRef.current?.setAttribute("directory", "");
+  }, []);
+
+  const handlePicked = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const { root, files } = await collectPyFiles(fileList);
+    setSelection(root);
+    load(root, files);
   };
 
   return (
@@ -37,31 +47,49 @@ export function Sidebar() {
       <div className="sidebar-section">
         <div className="sidebar-section-label">Import</div>
         <div className="path-row">
-          <input
-            className="input"
-            placeholder="C:\path\to\project"
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-          />
-          <button className="btn" onClick={() => setBrowsing(true)}>
-            Browse…
-          </button>
+          <div className="input" title={selection || undefined}>
+            {selection || "No folder or file selected"}
+          </div>
         </div>
         <div className="btn-row">
-          <button className="btn btn-primary" onClick={submit} disabled={loading || !path.trim()}>
+          <button className="btn btn-primary" onClick={() => folderInputRef.current?.click()} disabled={loading}>
             {loading ? (
               <>
                 <span className="spinner" />
                 Analyzing…
               </>
             ) : (
-              "Load"
+              "Open Folder…"
             )}
           </button>
+          <button className="btn" onClick={() => fileInputRef.current?.click()} disabled={loading}>
+            Open File…
+          </button>
         </div>
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            handlePicked(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".py"
+          hidden
+          onChange={(e) => {
+            handlePicked(e.target.files);
+            e.target.value = "";
+          }}
+        />
         {error && <div className="error-box">{error}</div>}
-        {!graph && !error && <div className="hint">Pick a Python file or a folder, every function inside is analyzed and its calls to other loaded functions become wires.</div>}
+        {!graph && !error && (
+          <div className="hint">Pick a Python file or a folder from your computer, every function inside is analyzed and its calls to other loaded functions become wires.</div>
+        )}
       </div>
 
       <SearchBar />
@@ -81,18 +109,6 @@ export function Sidebar() {
       )}
 
       <FileTree />
-
-      {browsing && (
-        <PathBrowser
-          initialPath={path.trim()}
-          onClose={() => setBrowsing(false)}
-          onSelect={(selected) => {
-            setPath(selected);
-            setBrowsing(false);
-            load(selected);
-          }}
-        />
-      )}
     </div>
   );
 }

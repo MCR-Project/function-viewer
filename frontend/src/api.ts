@@ -1,4 +1,9 @@
-import type { BrowseResult, Graph } from "./types";
+import type { Graph } from "./types";
+
+export interface FileUpload {
+  path: string;
+  content: string;
+}
 
 // Configurable so a packaged (Electron/Tauri) build, or a static frontend
 // pointed at a separately hosted backend, can point elsewhere. Falls back to
@@ -27,14 +32,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export function browse(path: string): Promise<BrowseResult> {
-  return request<BrowseResult>(`/api/browse?path=${encodeURIComponent(path)}`);
-}
-
-export function analyze(path: string): Promise<Graph> {
+export function analyze(root: string, files: FileUpload[]): Promise<Graph> {
   return request<Graph>("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path }),
+    body: JSON.stringify({ root, files }),
   });
 }
