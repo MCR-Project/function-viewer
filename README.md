@@ -60,3 +60,9 @@ sample_project/    demo fixture used for manual testing
 - `api.ts`, `types.ts`, `colors.ts`: fetch wrapper, wire format types, and per file color hashing.
 
 The frontend only talks to the backend over HTTP, with no browser-only file APIs, so it can later be wrapped in an Electron or Tauri shell without changes.
+
+## CI/CD
+
+Every PR into `main` runs two required checks (`.github/workflows/pr-checks.yml`): a frontend build and a backend build-and-run (health check against `/api/health`).
+
+Deployment is a single Docker image (`Dockerfile`) that builds the frontend and bundles it with the backend, which serves it at `/`. `render.yaml` describes the Render web service; once connected to this repo, Render rebuilds and redeploys automatically on every push to `main`.

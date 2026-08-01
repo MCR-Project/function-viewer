@@ -30,6 +30,11 @@ class AnalyzeRequest(BaseModel):
     path: str
 
 
+@app.get("/api/health")
+def health() -> dict:
+    return {"status": "ok"}
+
+
 @app.get("/api/browse")
 def browse(path: str = "") -> dict:
     """List directories and .py files at a path. Empty path lists Windows drives (or / on POSIX)."""
