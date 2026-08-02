@@ -4,7 +4,14 @@ import type { FileUpload } from "./api";
 const SKIP_DIRS = new Set(["__pycache__", "node_modules", ".git", ".venv", "venv", ".tox", ".mypy_cache"]);
 
 function relativePath(file: File): string {
-  return (file.webkitRelativePath || file.name).replace(/\\/g, "/");
+  const raw = (file.webkitRelativePath || file.name).replace(/\\/g, "/");
+  // webkitRelativePath includes the picked folder's own name as its first
+  // segment (e.g. "backend/services/x.py"). Strip it so paths - and the
+  // module names the backend derives from them - are relative to the
+  // folder's contents, matching Python's own import root and how the old
+  // server-side disk walk computed them.
+  const slash = raw.indexOf("/");
+  return slash === -1 ? raw : raw.slice(slash + 1);
 }
 
 function isSkipped(path: string): boolean {
