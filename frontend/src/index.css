@@ -328,6 +328,21 @@ body {
   flex-shrink: 0;
 }
 
+.lang-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #08060d;
+  font-family: var(--font-code);
+}
+
 .tree-row .folder-glyph {
   font-size: 11px;
   flex-shrink: 0;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { collectPyFiles } from "../localFiles";
+import { collectSourceFiles } from "../localFiles";
+import { SUPPORTED_EXTENSIONS } from "../languages";
 import { useViewer } from "../store";
 import { FileTree } from "./FileTree";
 import { SearchBar } from "./SearchBar";
@@ -24,7 +25,7 @@ export function Sidebar() {
 
   const handlePicked = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
-    const { root, files } = await collectPyFiles(fileList);
+    const { root, files } = await collectSourceFiles(fileList);
     setSelection(root);
     load(root, files);
   };
@@ -79,7 +80,7 @@ export function Sidebar() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".py"
+          accept={SUPPORTED_EXTENSIONS.join(",")}
           hidden
           onChange={(e) => {
             handlePicked(e.target.files);
@@ -88,7 +89,7 @@ export function Sidebar() {
         />
         {error && <div className="error-box">{error}</div>}
         {!graph && !error && (
-          <div className="hint">Pick a Python file or a folder from your computer, every function inside is analyzed and its calls to other loaded functions become wires.</div>
+          <div className="hint">Pick a Python or Rust file or a folder from your computer, every function inside is analyzed and its calls to other loaded functions become wires.</div>
         )}
       </div>
 
