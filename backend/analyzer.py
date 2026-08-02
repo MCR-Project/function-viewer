@@ -76,6 +76,16 @@ def _unparse(node: ast.AST | None) -> str | None:
         return None
 
 
+def _docstring_line_range(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[int, int] | None:
+    """(start, end) source lines of the function's docstring statement, if it has one."""
+    if not node.body:
+        return None
+    first = node.body[0]
+    if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+        return first.lineno, first.end_lineno or first.lineno
+    return None
+
+
 def _extract_params(args: ast.arguments) -> list[dict]:
     params: list[dict] = []
 
@@ -233,10 +243,14 @@ class Analyzer:
             start = min(d.lineno for d in node.decorator_list)
         raw = source_lines[start - 1 : end]
         indent = len(raw[0]) - len(raw[0].lstrip()) if raw else 0
+        doc_range = _docstring_line_range(node)
         code_lines = []
         for i, line in enumerate(raw):
+            lineno = start + i
+            if doc_range and doc_range[0] <= lineno <= doc_range[1]:
+                continue
             text = line[indent:] if line[:indent].strip() == "" else line
-            code_lines.append({"lineno": start + i, "text": text, "calls": []})
+            code_lines.append({"lineno": lineno, "text": text, "calls": []})
 
         info = FunctionInfo(
             id=func_id,
