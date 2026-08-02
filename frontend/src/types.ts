@@ -25,12 +25,14 @@ export interface FunctionInfo {
   isAsync: boolean;
   codeLines: CodeLine[];
   calls: string[];
+  language: string;
 }
 
 export interface FileInfo {
   path: string;
   functions: string[];
   error: string | null;
+  language: string | null;
 }
 
 export interface CallEdge {

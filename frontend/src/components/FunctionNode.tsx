@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import Prism from "prismjs";
 import "prismjs/components/prism-python";
+import "prismjs/components/prism-rust";
 import { fileColor } from "../colors";
 import { useViewer } from "../store";
 import type { FunctionInfo } from "../types";
@@ -62,10 +63,10 @@ function FunctionNodeInner({ data, selected }: NodeProps<FunctionNodeType>) {
 
   const color = fileColor(fn.file);
 
-  const highlighted = useMemo(
-    () => fn.codeLines.map((line) => Prism.highlight(line.text, Prism.languages.python, "python")),
-    [fn.codeLines],
-  );
+  const highlighted = useMemo(() => {
+    const grammar = Prism.languages[fn.language] ?? Prism.languages.python;
+    return fn.codeLines.map((line) => Prism.highlight(line.text, grammar, fn.language));
+  }, [fn.codeLines, fn.language]);
 
   const dotTitle = isActive ? "Active, click to disable" : "Inactive, click to enable";
 
