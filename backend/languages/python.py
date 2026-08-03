@@ -4,6 +4,13 @@ Walks each file, extracts every top-level function and class method, and
 resolves which loaded functions each code line calls. Only calls to
 functions defined within the loaded files are reported; stdlib and
 third-party calls are ignored.
+
+A picked folder isn't always itself the import root: a monorepo commonly
+has a nested "real" root (e.g. backend/, with services/, config.py etc.
+directly inside it, everything importing absolute-style as if backend/ is
+on sys.path). _infer_roots() detects that per directory, the same idea as
+the Rust plugin's crate-root detection, just inferred from imports instead
+of a fixed directory-name convention.
 """
 
 from __future__ import annotations
@@ -79,6 +86,60 @@ def _module_name(rel_path: str) -> str:
     return ".".join(parts) if parts else ""
 
 
+def _infer_roots(sources: dict[str, str]) -> dict[str, str]:
+    """rel_path -> the ancestor directory ("" for the picked root itself)
+    that file's absolute imports are actually relative to.
+
+    For each directory, pools the first segment of every absolute import
+    (`import x...`, `from x... import y`, level 0) used by files in it, then
+    walks from that directory outward looking for the closest ancestor that
+    directly contains a sibling of that name - e.g. `services.supabase_client`
+    only resolves once the search reaches the directory that actually has a
+    `services/` child. Directories with no first-party-looking imports default
+    to "" (the picked root), which is the previous, unchanged behavior.
+    """
+    children_of: dict[str, set[str]] = {}
+    all_names: set[str] = set()
+    for rel_path in sources:
+        parts = rel_path.split("/")
+        for i in range(len(parts)):
+            parent = "/".join(parts[:i])
+            name = parts[i][: -len(".py")] if i == len(parts) - 1 and parts[i].endswith(".py") else parts[i]
+            children_of.setdefault(parent, set()).add(name)
+            all_names.add(name)
+
+    segs_by_dir: dict[str, set[str]] = {}
+    for rel_path, source in sources.items():
+        directory = rel_path.rsplit("/", 1)[0] if "/" in rel_path else ""
+        try:
+            tree = ast.parse(source)
+        except (SyntaxError, ValueError):
+            continue
+        segs = segs_by_dir.setdefault(directory, set())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    segs.add(alias.name.split(".")[0])
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                segs.add(node.module.split(".")[0])
+
+    root_for_dir: dict[str, str] = {}
+    for directory, segs in segs_by_dir.items():
+        relevant = segs & all_names
+        parts = directory.split("/") if directory else []
+        chosen = ""
+        for i in range(len(parts), -1, -1):
+            candidate = "/".join(parts[:i])
+            if relevant and relevant.issubset(children_of.get(candidate, set())):
+                chosen = candidate
+                break
+        root_for_dir[directory] = chosen
+
+    return {
+        rel_path: root_for_dir.get(rel_path.rsplit("/", 1)[0] if "/" in rel_path else "", "") for rel_path in sources
+    }
+
+
 class _ImportVisitor(ast.NodeVisitor):
     """Collects import aliases at any level of the module."""
 
@@ -150,6 +211,7 @@ class _Analyzer:
     # -- pass 1: parse everything, register functions and imports --
 
     def _parse_files(self) -> None:
+        roots = _infer_roots(self.sources)
         for rel_path, source in sorted(self.sources.items()):
             self.file_functions.setdefault(rel_path, [])
             try:
@@ -158,7 +220,9 @@ class _Analyzer:
                 self.file_errors[rel_path] = f"{type(exc).__name__}: {exc}"
                 continue
 
-            mod = ModuleInfo(rel_path=rel_path, module=_module_name(rel_path))
+            root = roots[rel_path]
+            within_root = rel_path[len(root) + 1 :] if root else rel_path
+            mod = ModuleInfo(rel_path=rel_path, module=_module_name(within_root))
             self.modules[mod.module] = mod
             _ImportVisitor(mod).visit(tree)
             source_lines = source.splitlines()
