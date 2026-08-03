@@ -42,9 +42,9 @@ def health() -> dict:
 
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest) -> dict:
-    """Analyze Python source files read client-side and uploaded as text (the server never touches the visitor's filesystem)."""
+    """Analyze source files read client-side and uploaded as text (the server never touches the visitor's filesystem)."""
     if not req.files:
-        raise HTTPException(status_code=400, detail="No Python files were provided")
+        raise HTTPException(status_code=400, detail="No supported source files were provided")
     sources = {f.path: f.content for f in req.files}
     try:
         return analyze_sources(sources, root=req.root)

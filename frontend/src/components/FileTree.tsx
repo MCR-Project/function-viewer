@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { fileColor } from "../colors";
 import { useViewer } from "../store";
+import { LanguageIcon } from "./LanguageIcon";
 import type { FileInfo } from "../types";
 
 interface DirNode {
@@ -63,6 +64,7 @@ export function FileTree() {
         <div className="tree-row" style={{ paddingLeft: BASE + depth * STEP }} onClick={() => flip(file.path)}>
           <span className={`chevron ${open ? "open" : ""}`}>▶</span>
           <span className="file-dot" style={{ background: fileColor(file.path) }} />
+          <LanguageIcon id={file.language} />
           <span className="label">{name}</span>
           {file.error ? (
             <span className="tree-error" title={file.error}>
