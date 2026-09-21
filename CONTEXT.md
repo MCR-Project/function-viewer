@@ -7,7 +7,7 @@ Turns a codebase into a graph of its functions and the calls between them, and l
 ### The graph
 
 **Graph**:
-The result of analysing a set of source files: their files, their functions, and the call edges between those functions.
+The result of analyzing a set of source files: their files, their functions, and the call edges between those functions.
 
 **Function**:
 A named callable unit found in source, including methods, associated functions and constructors.
@@ -18,27 +18,27 @@ A directed link from a caller function to a callee function, with the line where
 _Avoid_: Link, dependency
 
 **Entry point**:
-The function activated automatically when a project loads: the shallowest top-level `main`.
+The function activated automatically when a project loads: the project's top-level `main`, if it has one.
 _Avoid_: Start function, root function
 
 **Language plugin**:
-The part of the system that understands one programming language: it finds that language's functions and resolves which loaded functions each one calls.
-_Avoid_: Parser, analyzer (the analyzer is the whole multi-language dispatcher)
+The support for one programming language: the piece that knows how to read that language's functions and their calls.
+_Avoid_: Parser
 
 ### Roots
 
-Each language has its own idea of where a project's names start, and the analyser infers it per language. The terms below are the ones that exist today; a new language that needs its own notion of root adds its term here.
+Each language has its own idea of where a project's names start. The terms below are the ones that exist today; a new language that needs its own notion of root adds its term here.
 
 **Picked root**:
 The file or folder the user selects to load. Everything is measured relative to its contents.
 _Avoid_: Project root, base directory
 
 **Import root**:
-For Python, the directory that absolute imports are written relative to, inferred from the imports the project actually uses. It may sit below the picked root.
+For Python, the directory that absolute imports are written relative to. It may sit below the picked root.
 _Avoid_: Source root, package root
 
 **Crate root**:
-For Rust, the directory a crate's modules are resolved from: the nearest `src/` ancestor of a file.
+For Rust, the directory a crate's modules are resolved from: that crate's `src/` directory.
 _Avoid_: Package root, workspace root
 
 ### The canvas
@@ -52,7 +52,7 @@ The glowing line drawn between function cards to show a call edge. The edge is t
 _Avoid_: Connection, arrow
 
 **Active**:
-A function the user has switched on. Its card is shown in full and it drives what else appears.
+A function the user has switched on; its card is shown in full.
 _Avoid_: Enabled, selected
 
 **Ghost**:
