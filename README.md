@@ -15,6 +15,7 @@ The goal is to make the flow of a codebase visible instead of jumping between fi
 - Follow a function's flow upward (its callers) or downward (what it calls) with one click.
 - Auto arrange the graph two ways: by call order (flow mode) or grouped by file (folder mode, draggable as a group).
 - Search and a VS Code style file explorer for quick navigation, with a small language icon next to each file.
+- A Dark and a Light theme. The topbar toggle cycles System, Light and Dark; System follows the OS and is the default.
 
 ### Supported languages
 
@@ -73,6 +74,7 @@ sample_rust_project/ Rust demo fixture used for manual testing
 - `components/LanguageIcon.tsx`: the small per-file language badge shown in the Explorer.
 - `languages.ts`: the frontend's mirror of the backend's language registry - id, label, extensions, icon color per language. Adding a language to the backend also means adding one entry here.
 - `api.ts`, `types.ts`, `colors.ts`: fetch wrapper, wire format types, and per file color hashing.
+- `theme.ts`, `components/ThemeToggle.tsx`: the theme preference (System, Light or Dark), the System theme tracking, and the topbar toggle. The resolved theme is set as `data-theme` on `<html>`, and every color in `index.css` is a token that the Light theme overrides.
 
 The frontend only talks to the backend over HTTP, with no browser-only file APIs, so it can later be wrapped in an Electron or Tauri shell without changes.
 

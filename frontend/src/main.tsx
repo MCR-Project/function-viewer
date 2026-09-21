@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './theme.ts' // applies the Theme and tracks the System theme on import
 import App from './App.tsx'
 
 // requestAnimationFrame never fires while the tab is hidden, which stalls

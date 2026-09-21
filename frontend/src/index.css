@@ -1,23 +1,118 @@
-/* ============ Function Viewer, blueprint theme ============ */
+/* ============ Function Viewer, blueprint styling ============ */
+
+/* Every color lives in a token. The Dark theme is the default (no data-theme
+   attribute means dark); the Light theme overrides it below. The theme is
+   applied as data-theme on <html> by index.html and src/theme.ts. */
 
 :root {
+  --font-ui: "Chakra Petch", sans-serif;
+  --font-code: "JetBrains Mono", monospace;
+
+  /* The function card header is dark in both themes, so its text colors are
+     theme-independent. */
+  --hdr-base: #10151d;
+  --hdr-text: #d6e2f0;
+  --hdr-text-dim: #8497ad;
+  --hdr-accent: #35c9dd;
+  --lock: #f0b849;
+}
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
   --bg: #0b0f14;
   --bg-grid: #1b2634;
   --panel: #11161e;
+  --panel-end: #0d1219;
   --panel-2: #161d27;
   --card: rgba(15, 20, 27, 0.94);
   --border: #263141;
+  --border-soft: #151d28;
   --border-strong: #35455c;
   --text: #d6e2f0;
   --text-dim: #8497ad;
   --text-faint: #5a6b80;
   --accent: #35c9dd;
+  --accent-glow: rgba(53, 201, 221, 0.25);
+  --accent-fill: rgba(53, 201, 221, 0.16);
+  --toggled-text: #35c9dd;
   --green: #3fd97f;
   --red: #f4576b;
-  --lock: #f0b849;
+  --error-text: #ff9daa;
+  --scroll-thumb: #26313f;
 
-  --font-ui: "Chakra Petch", sans-serif;
-  --font-code: "JetBrains Mono", monospace;
+  --primary-from: #10404a;
+  --primary-to: #0c2f38;
+  --primary-border: #2a7f92;
+  --primary-text: #9beaf5;
+
+  --card-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --doc-tint: rgba(255, 255, 255, 0.015);
+  --dot-shade: rgba(0, 0, 0, 0.35);
+  --wire-blur: 4px;
+  --wire-mix: 100%;
+  --folder-label-base: white;
+  --folder-label-mix: 85%;
+
+  --tok-keyword: #ff7b72;
+  --tok-function: #d2a8ff;
+  --tok-class: #ffa657;
+  --tok-string: #a5d6a2;
+  --tok-number: #79c0ff;
+  --tok-comment: #6e7c8f;
+
+  --minimap-bg: #0d1219;
+  --minimap-mask: rgba(6, 10, 15, 0.75);
+}
+
+/* Light theme: blueprint paper. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #eef3f8;
+  --bg-grid: #c3d0df;
+  --panel: #f8fafc;
+  --panel-end: #edf2f7;
+  --panel-2: #e6edf5;
+  --card: rgba(255, 255, 255, 0.97);
+  --border: #d3dde9;
+  --border-soft: #e3eaf2;
+  --border-strong: #b3c2d5;
+  --text: #14202e;
+  --text-dim: #45586e;
+  --text-faint: #64768b;
+  --accent: #07748a;
+  --accent-glow: rgba(7, 116, 138, 0.22);
+  --accent-fill: rgba(7, 116, 138, 0.12);
+  --toggled-text: #075a6b;
+  --green: #1f9d57;
+  --red: #d63a52;
+  --error-text: #b4233a;
+  --scroll-thumb: #c3d0df;
+
+  --primary-from: #dff3f7;
+  --primary-to: #c8e9f0;
+  --primary-border: #5db4c5;
+  --primary-text: #075a6b;
+
+  --card-shadow: 0 8px 24px rgba(31, 55, 90, 0.14);
+  --doc-tint: rgba(10, 60, 110, 0.03);
+  --dot-shade: rgba(0, 0, 0, 0.22);
+  --wire-blur: 2px;
+  --wire-mix: 45%;
+  --folder-label-base: black;
+  --folder-label-mix: 60%;
+
+  --tok-keyword: #cf222e;
+  --tok-function: #8250df;
+  --tok-class: #953800;
+  --tok-string: #0a3069;
+  --tok-number: #0550ae;
+  --tok-comment: #6e7781;
+
+  --minimap-bg: #f8fafc;
+  --minimap-mask: rgba(190, 205, 222, 0.6);
 }
 
 * {
@@ -44,7 +139,7 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #26313f;
+  background: var(--scroll-thumb);
   border-radius: 5px;
   border: 2px solid var(--panel);
 }
@@ -62,7 +157,7 @@ body {
 .sidebar {
   width: 320px;
   min-width: 320px;
-  background: linear-gradient(180deg, var(--panel) 0%, #0d1219 100%);
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-end) 100%);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -167,13 +262,13 @@ body {
 
 .btn:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 10px rgba(53, 201, 221, 0.25);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .btn.toggled {
-  background: rgba(53, 201, 221, 0.16);
+  background: var(--accent-fill);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--toggled-text);
 }
 
 .btn:disabled {
@@ -186,14 +281,14 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #10404a, #0c2f38);
-  border-color: #2a7f92;
-  color: #9beaf5;
+  background: linear-gradient(180deg, var(--primary-from), var(--primary-to));
+  border-color: var(--primary-border);
+  color: var(--primary-text);
 }
 
 .btn-danger:hover {
   border-color: var(--red);
-  box-shadow: 0 0 10px rgba(244, 87, 107, 0.25);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--red) 25%, transparent);
 }
 
 .btn-row {
@@ -208,10 +303,10 @@ body {
 .error-box {
   margin-top: 8px;
   padding: 8px 10px;
-  border: 1px solid rgba(244, 87, 107, 0.4);
-  background: rgba(244, 87, 107, 0.08);
+  border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
   border-radius: 6px;
-  color: #ff9daa;
+  color: var(--error-text);
   font-size: 12px;
   word-break: break-word;
 }
@@ -240,7 +335,7 @@ body {
   gap: 8px;
   padding: 6px 8px;
   cursor: pointer;
-  border-bottom: 1px solid #151d28;
+  border-bottom: 1px solid var(--border-soft);
 }
 .search-result:last-child {
   border-bottom: none;
@@ -400,12 +495,12 @@ body {
 
 .status-dot.on {
   background: var(--green);
-  box-shadow: 0 0 10px rgba(63, 217, 127, 0.8), inset 0 -3px 6px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--green) 80%, transparent), inset 0 -3px 6px var(--dot-shade);
 }
 
 .status-dot.off {
   background: var(--red);
-  box-shadow: 0 0 8px rgba(244, 87, 107, 0.5), inset 0 -3px 6px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--red) 50%, transparent), inset 0 -3px 6px var(--dot-shade);
 }
 
 .tree-row .status-dot {
@@ -443,7 +538,12 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 16px;
-  background: linear-gradient(180deg, rgba(11, 15, 20, 0.9) 0%, rgba(11, 15, 20, 0.55) 60%, transparent 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg) 90%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 55%, transparent) 60%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 
@@ -464,6 +564,12 @@ body {
   gap: 8px;
   pointer-events: auto;
   flex-shrink: 0;
+}
+
+/* Fixed width so the label swap (System / Light / Dark) doesn't shift the topbar */
+
+.theme-toggle {
+  min-width: 92px;
 }
 
 /* Reorganize: button with a mode slider underneath */
@@ -490,8 +596,8 @@ body {
   bottom: 2px;
   left: 2px;
   width: calc(50% - 2px);
-  background: linear-gradient(180deg, #10404a, #0c2f38);
-  border: 1px solid #2a7f92;
+  background: linear-gradient(180deg, var(--primary-from), var(--primary-to));
+  border: 1px solid var(--primary-border);
   border-radius: 999px;
   transition: transform 0.2s ease;
 }
@@ -523,7 +629,7 @@ body {
 }
 
 .mode-slider button.active {
-  color: #9beaf5;
+  color: var(--primary-text);
 }
 
 .mode-slider button:not(.active):hover {
@@ -564,7 +670,7 @@ body {
   font-family: var(--font-code);
   font-size: 11px;
   font-weight: 600;
-  color: color-mix(in srgb, var(--folder-color, var(--text-dim)) 85%, white);
+  color: color-mix(in srgb, var(--folder-color, var(--text-dim)) var(--folder-label-mix), var(--folder-label-base));
   background: color-mix(in srgb, var(--folder-color, var(--border-strong)) 20%, var(--bg));
   border: 1.5px solid color-mix(in srgb, var(--folder-color, var(--border-strong)) 60%, var(--border-strong));
   border-bottom: none;
@@ -627,15 +733,27 @@ body {
 
 /* Edges: glowing wires */
 
+/* React Flow's own theme (colorMode) must not repaint the pane, dots or minimap:
+   those come from our tokens. */
+.react-flow {
+  --xy-background-color: transparent;
+  --xy-background-pattern-color: var(--bg-grid);
+  --xy-minimap-background-color: var(--minimap-bg);
+  --xy-minimap-mask-background-color: var(--minimap-mask);
+}
+
+/* A wire glows softly by default (softer still in the Light theme); the wires
+   of a hovered or selected card get the full glow in both themes. */
 .react-flow__edge-path {
   stroke-width: 2;
-  filter: drop-shadow(0 0 4px currentColor);
+  filter: drop-shadow(0 0 var(--wire-blur) color-mix(in srgb, currentColor var(--wire-mix), transparent));
 }
 
 .react-flow__edge:hover .react-flow__edge-path,
 .react-flow__edge.edge-active .react-flow__edge-path {
   stroke-width: 3;
   stroke-dasharray: 8 4;
+  filter: drop-shadow(0 0 4px currentColor);
   animation: wire-flow 0.5s linear infinite;
 }
 
@@ -655,7 +773,7 @@ body {
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   font-family: var(--font-code);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--card-shadow);
   backdrop-filter: blur(4px);
   overflow: visible;
   transition: box-shadow 0.2s, border-color 0.2s, opacity 0.2s;
@@ -663,7 +781,7 @@ body {
 
 .fn-card.active {
   border-color: color-mix(in srgb, var(--cat) 65%, var(--border-strong));
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 18px color-mix(in srgb, var(--cat) 28%, transparent);
+  box-shadow: var(--card-shadow), 0 0 18px color-mix(in srgb, var(--cat) 28%, transparent);
 }
 
 .fn-card.inactive {
@@ -680,7 +798,7 @@ body {
   gap: 9px;
   padding: 9px 12px;
   border-radius: 9px 9px 0 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--cat) 42%, #10151d) 0%, #10151d 85%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cat) 42%, var(--hdr-base)) 0%, var(--hdr-base) 85%);
   border-bottom: 1px solid var(--border);
   position: relative;
 }
@@ -721,17 +839,17 @@ body {
 
 .fn-header .fn-sig {
   font-size: 11px;
-  color: color-mix(in srgb, var(--text) 80%, var(--cat));
+  color: color-mix(in srgb, var(--hdr-text) 80%, var(--cat));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .fn-sig .p-name {
-  color: var(--text);
+  color: var(--hdr-text);
 }
 .fn-sig .p-ann {
-  color: var(--text-dim);
+  color: var(--hdr-text-dim);
 }
 .fn-sig .p-ret {
   color: #9beaf5;
@@ -752,9 +870,9 @@ body {
 }
 
 .fn-header .flow-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 8px rgba(53, 201, 221, 0.4);
+  border-color: var(--hdr-accent);
+  color: var(--hdr-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--hdr-accent) 40%, transparent);
 }
 
 /* Docstring */
@@ -762,7 +880,7 @@ body {
 .fn-doc {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--doc-tint);
   font-size: 11.5px;
   line-height: 1.55;
   color: var(--text-dim);
@@ -840,40 +958,40 @@ body {
   font-weight: 700;
 }
 
-/* Prism token colors (GitHub-dark-ish) */
+/* Prism token colors (GitHub-dark-ish in the Dark theme, GitHub-light in the Light one) */
 
 .token.keyword {
-  color: #ff7b72;
+  color: var(--tok-keyword);
 }
 .token.function {
-  color: #d2a8ff;
+  color: var(--tok-function);
 }
 .token.class-name {
-  color: #ffa657;
+  color: var(--tok-class);
 }
 .token.string,
 .token.triple-quoted-string {
-  color: #a5d6a2;
+  color: var(--tok-string);
 }
 .token.number {
-  color: #79c0ff;
+  color: var(--tok-number);
 }
 .token.comment {
-  color: #6e7c8f;
+  color: var(--tok-comment);
   font-style: italic;
 }
 .token.builtin {
-  color: #ffa657;
+  color: var(--tok-class);
 }
 .token.boolean {
-  color: #79c0ff;
+  color: var(--tok-number);
 }
 .token.operator {
-  color: #ff7b72;
+  color: var(--tok-keyword);
 }
 .token.decorator,
 .token.punctuation.decorator {
-  color: #d2a8ff;
+  color: var(--tok-function);
 }
 
 /* Handles: blueprint-style pins */

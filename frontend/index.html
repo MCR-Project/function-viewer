@@ -4,7 +4,22 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <title>Function Viewer</title>
+    <script>
+      // Apply the Theme before first paint so a reload never flashes the wrong one.
+      // Keep the storage key and the resolution rules in sync with src/theme.ts.
+      (function () {
+        var preference = null;
+        try {
+          preference = localStorage.getItem("fv-theme-preference");
+        } catch (e) {}
+        var theme = "dark";
+        if (preference === "light" || preference === "dark") theme = preference;
+        else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

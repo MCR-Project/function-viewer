@@ -74,3 +74,17 @@ _Avoid_: Folder mode
 **Explorer**:
 The sidebar's nested tree of the loaded files, each with a small language icon.
 _Avoid_: File browser, file list
+
+### Appearance
+
+**Theme**:
+The overall appearance of the app: either the **Dark theme** or the **Light theme**. The Dark theme is the original look. "Mode" is not used here because Flow mode and File mode already own that word.
+_Avoid_: Color mode, dark mode (as the name of the setting), skin
+
+**Theme preference**:
+The user's choice of Theme: **System**, **Light** or **Dark**. It is System until the user picks otherwise, and it is remembered between visits.
+_Avoid_: Theme setting, theme mode
+
+**System theme**:
+The Theme the user's operating system currently asks for. It decides what the app shows only while the Theme preference is System, and the app follows it as it changes. If the system asks for nothing, the Dark theme applies.
+_Avoid_: Auto theme, OS theme
