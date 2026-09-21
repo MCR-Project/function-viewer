@@ -25,8 +25,10 @@ import {
   type Point,
 } from "../layout";
 import { useViewer, type OrgMode } from "../store";
+import { selectTheme, useTheme } from "../theme";
 import { FolderFrame, type FolderFrameType } from "./FolderFrame";
 import { FunctionNode, type FunctionNodeType } from "./FunctionNode";
+import { ThemeToggle } from "./ThemeToggle";
 
 const nodeTypes = { function: FunctionNode, folder: FolderFrame };
 
@@ -40,6 +42,7 @@ export function GraphCanvas() {
   const focusRequest = useViewer((s) => s.focusRequest);
   const layoutEpoch = useViewer((s) => s.layoutEpoch);
   const layoutMode = useViewer((s) => s.layoutMode);
+  const theme = useTheme(selectTheme);
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -397,6 +400,7 @@ export function GraphCanvas() {
           >
             ⛶ Fit view
           </button>
+          <ThemeToggle />
         </div>
       </div>
       {graph && visible.size === 0 && (
@@ -431,8 +435,10 @@ export function GraphCanvas() {
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}
         deleteKeyCode={null}
+        colorMode={theme}
       >
-        <Background variant={BackgroundVariant.Dots} gap={26} size={1.6} color="#1b2634" />
+        {/* dot grid, minimap background and mask take their colors from the theme tokens (see .react-flow in index.css) */}
+        <Background variant={BackgroundVariant.Dots} gap={26} size={1.6} />
         <MiniMap
           pannable
           zoomable
@@ -441,8 +447,6 @@ export function GraphCanvas() {
               ? "transparent"
               : fileColor((n as FunctionNodeType).data.fn.file)
           }
-          maskColor="rgba(6, 10, 15, 0.75)"
-          bgColor="#0d1219"
         />
       </ReactFlow>
     </div>
