@@ -16,12 +16,12 @@ import "@xyflow/react/dist/style.css";
 import { fileColor } from "../colors";
 import { computeVisible } from "../flow";
 import {
-  estimateNodeHeight,
   FOLDER_HEADER,
   FOLDER_PAD,
   layoutFolderGraph,
   layoutGraph,
   nodeSize,
+  placeIncrementally,
   type Point,
 } from "../layout";
 import { useViewer, type OrgMode } from "../store";
@@ -106,80 +106,11 @@ export function GraphCanvas() {
           });
       }
 
-      const result = prev.filter((n) => visible.has(n.id));
-      const placed = new Map(result.map((n) => [n.id, n]));
-      const sizes = new Map(result.map((n) => [n.id, nodeSize(n)]));
-      let pending = [...visible].filter((id) => !placed.has(id) && graph.functions[id]);
-
-      const GAP = 40;
-      // Slide a candidate spot downward until it no longer intersects any card.
-      const findFreeY = (x: number, y: number, w: number, h: number): number => {
-        for (let guard = 0; guard < 60; guard++) {
-          let bumped = false;
-          for (const [pid, pnode] of placed) {
-            const s = sizes.get(pid)!;
-            const px = pnode.position.x;
-            const py = pnode.position.y;
-            if (x < px + s.width + GAP && px < x + w + GAP && y < py + s.height + GAP && py < y + h + GAP) {
-              y = py + s.height + GAP;
-              bumped = true;
-            }
-          }
-          if (!bumped) break;
-        }
-        return y;
-      };
-
-      const place = (id: string, at: Point) => {
-        const size = { width: 480, height: estimateNodeHeight(graph.functions[id]) };
-        const node = {
-          id,
-          type: "function",
-          position: { x: at.x, y: findFreeY(at.x, at.y, size.width, size.height) },
-          data: { fn: graph.functions[id] },
-          style: { opacity: 1 },
-        } satisfies FunctionNodeType as Node;
-        placed.set(id, node);
-        sizes.set(id, size);
-        result.push(node);
-      };
-
-      while (pending.length > 0) {
-        const later: string[] = [];
-        for (const id of pending) {
-          // Pop in right next to the active caller leading here…
-          const wire = graph.edges.find(
-            (e) => e.target === id && e.source !== id && activeIds.has(e.source) && placed.has(e.source),
-          );
-          if (wire) {
-            const anchor = placed.get(wire.source)!;
-            const x = anchor.position.x + sizes.get(wire.source)!.width + 160;
-            place(id, { x, y: anchor.position.y });
-            continue;
-          }
-          // …or, for upward flows, left of the placed function this one calls.
-          const revWire = graph.edges.find((e) => e.source === id && e.target !== id && placed.has(e.target));
-          if (revWire) {
-            const anchor = placed.get(revWire.target)!;
-            place(id, { x: anchor.position.x - 480 - 160, y: anchor.position.y });
-            continue;
-          }
-          later.push(id);
-        }
-        if (later.length === pending.length && later.length > 0) {
-          // No active caller on the canvas leads here: this is the function the
-          // user just enabled. Drop it at the viewport center; its callees then
-          // anchor to it on the next pass.
-          const id = later.shift()!;
-          const rect = wrapRef.current?.getBoundingClientRect();
-          const center = rect
-            ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
-            : { x: 0, y: 0 };
-          place(id, { x: center.x - 240, y: center.y - estimateNodeHeight(graph.functions[id]) / 2 });
-        }
-        pending = later;
-      }
-      return result;
+      const rect = wrapRef.current?.getBoundingClientRect();
+      const center = rect
+        ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+        : { x: 0, y: 0 };
+      return placeIncrementally(prev, visible, graph, activeIds, center);
     });
 
     // ResizeObserver measurements only arrive on rendered frames; force a

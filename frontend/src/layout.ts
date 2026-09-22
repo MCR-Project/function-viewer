@@ -199,6 +199,97 @@ function layoutColumns(
 }
 
 /**
+ * Places the new arrivals in `visible` (ids not already in `prev`) next to whatever
+ * placed, still-visible card led to them: right of the active caller that calls them,
+ * or left of the (already-placed) function they themselves call, in that order of
+ * preference. An id with no placed neighbor on either side - the function the user
+ * just activated, with nothing else on the canvas yet pointing to or from it - drops
+ * at `center` instead; its own callees then anchor to it on a later pass. Runs to a
+ * fixed point: newly placed cards themselves become anchors for the next round of
+ * pending ids, so a chain of activations settles in one call. Returns every surviving
+ * `prev` card (unmoved) plus one freshly built card per new id - not just positions,
+ * since a new card also needs its initial `data`/`style`, unlike a full reflow.
+ */
+export function placeIncrementally(
+  prev: Node[],
+  visible: ReadonlySet<string>,
+  graph: Graph,
+  activeIds: ReadonlySet<string>,
+  center: Point,
+): Node[] {
+  const GAP = 40;
+  const result = prev.filter((n) => visible.has(n.id));
+  const placed = new Map(result.map((n) => [n.id, n]));
+  const sizes = new Map(result.map((n) => [n.id, nodeSize(n)]));
+  let pending = [...visible].filter((id) => !placed.has(id) && graph.functions[id]);
+
+  // Slide a candidate spot downward until it no longer intersects any placed card.
+  const findFreeY = (x: number, y: number, w: number, h: number): number => {
+    for (let guard = 0; guard < 60; guard++) {
+      let bumped = false;
+      for (const [pid, pnode] of placed) {
+        const s = sizes.get(pid)!;
+        const px = pnode.position.x;
+        const py = pnode.position.y;
+        if (x < px + s.width + GAP && px < x + w + GAP && y < py + s.height + GAP && py < y + h + GAP) {
+          y = py + s.height + GAP;
+          bumped = true;
+        }
+      }
+      if (!bumped) break;
+    }
+    return y;
+  };
+
+  const place = (id: string, at: Point) => {
+    const size = { width: 480, height: estimateNodeHeight(graph.functions[id]) };
+    const node = {
+      id,
+      type: "function",
+      position: { x: at.x, y: findFreeY(at.x, at.y, size.width, size.height) },
+      data: { fn: graph.functions[id] },
+      style: { opacity: 1 },
+    } satisfies Node;
+    placed.set(id, node);
+    sizes.set(id, size);
+    result.push(node);
+  };
+
+  while (pending.length > 0) {
+    const later: string[] = [];
+    for (const id of pending) {
+      // Pop in right next to the active caller leading here…
+      const wire = graph.edges.find(
+        (e) => e.target === id && e.source !== id && activeIds.has(e.source) && placed.has(e.source),
+      );
+      if (wire) {
+        const anchor = placed.get(wire.source)!;
+        const x = anchor.position.x + sizes.get(wire.source)!.width + 160;
+        place(id, { x, y: anchor.position.y });
+        continue;
+      }
+      // …or, for upward flows, left of the placed function this one calls.
+      const revWire = graph.edges.find((e) => e.source === id && e.target !== id && placed.has(e.target));
+      if (revWire) {
+        const anchor = placed.get(revWire.target)!;
+        place(id, { x: anchor.position.x - 480 - 160, y: anchor.position.y });
+        continue;
+      }
+      later.push(id);
+    }
+    if (later.length === pending.length && later.length > 0) {
+      // No active caller on the canvas leads here: this is the function the
+      // user just enabled. Drop it at the given center; its callees then
+      // anchor to it on the next pass.
+      const id = later.shift()!;
+      place(id, { x: center.x - 240, y: center.y - estimateNodeHeight(graph.functions[id]) / 2 });
+    }
+    pending = later;
+  }
+  return result;
+}
+
+/**
  * Left-to-right layered layout of every visible function (callers left of
  * callees): a function's column is its DFS depth, and its row is DFS
  * discovery order, so a caller's wires always stack top to bottom in the
