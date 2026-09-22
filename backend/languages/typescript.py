@@ -30,14 +30,22 @@ only when exactly one loaded file's path ends with it; packages never do.
 Calls resolved: `foo()`, `new Foo()`, `this.m()`, `Class.staticM()`, `ns.f()`
 and `variable.m()` when the variable's class is known from a parameter
 annotation, `const x: Foo` or `const x = new Foo()` - so annotated code
-yields more edges than untyped code, but through the same path.
+yields more edges than untyped code, but through the same path. `<Foo />`,
+`<Foo>...</Foo>` and `<Foo.Bar />` resolve the same way, anchored to the
+opening tag's name - JSX desugars to a call, so mounting a component is a
+call from the function that renders it. A lowercase tag (`<div />`) is a DOM
+element, not a call, by JSX's own capitalization convention; a fragment
+(`<>...</>`) has no name and is never a call. A tag naming a class resolves
+to nothing (see the member-resolution limit below: a class has no single id
+in this plugin, only its methods do).
 
 Real limits, in the spirit of the other plugins' resolvers: one object and
-one member only (no `this.a.b()`); no inheritance (`super`, inherited
-methods); no dynamic calls (`obj[key]()`, `.call`, `.apply`); a function
-passed as a value (`items.map(fn)`) isn't a call; JSX elements (`<Foo />`)
-aren't calls; a getter or setter runs on property access, which isn't a call;
-`export * as ns` isn't followed; and top-level statements belong to no Function.
+one member only (no `this.a.b()`, no `<Ns.Deep.Thing />`); no inheritance
+(`super`, inherited methods); no dynamic calls (`obj[key]()`, `.call`,
+`.apply`); a function passed as a value (`items.map(fn)`) isn't a call; a
+getter or setter runs on property access, which isn't a call; `export * as
+ns` isn't followed; hand-written `React.createElement(...)` isn't recognized
+as a JSX-shaped call; and top-level statements belong to no Function.
 """
 
 from __future__ import annotations
@@ -284,6 +292,24 @@ def _extract_params(fn_node: Node, source: bytes) -> list[dict]:
     return params
 
 
+# jsx_opening_element (the `<Foo>` half of a paired `<Foo>...</Foo>`) and
+# jsx_self_closing_element (`<Foo />`) both carry a `name` field; a fragment's
+# opening tag (`<>`) has none.
+_JSX_TAG_NODE_TYPES = frozenset({"jsx_opening_element", "jsx_self_closing_element"})
+
+
+def _is_intrinsic_jsx_tag(name_node: Node) -> bool:
+    """`<div />` (lowercase first letter) is a DOM element, not a call; `<Foo />` / `<_Foo />` are."""
+    first = (name_node.text or b"")[:1]
+    return first.islower()
+
+
+def _anchor_line(node: Node) -> int:
+    """A method name on a later line than its object (a chain) is where the wire should leave from."""
+    anchor = node.child_by_field_name("property") if node.type == "member_expression" else None
+    return (anchor or node).start_point[0] + 1
+
+
 class _CallCollector:
     """Collects (lineno, callee-id) pairs inside one function body.
 
@@ -302,9 +328,13 @@ class _CallCollector:
             if func is not None:
                 target = self.resolver(func, is_new)
                 if target:
-                    # a method name on a later line than its object (a chain) is where the wire should leave from
-                    anchor = func.child_by_field_name("property") if func.type == "member_expression" else None
-                    self.found.append(((anchor or func).start_point[0] + 1, target))
+                    self.found.append((_anchor_line(func), target))
+        elif node.type in _JSX_TAG_NODE_TYPES:
+            name = node.child_by_field_name("name")
+            if name is not None and not (name.type == "identifier" and _is_intrinsic_jsx_tag(name)):
+                target = self.resolver(name, False)
+                if target:
+                    self.found.append((_anchor_line(name), target))
         for child in node.children:
             self.visit(child)
 

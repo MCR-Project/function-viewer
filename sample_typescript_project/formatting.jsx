@@ -6,3 +6,8 @@ function label(result) {
 export function renderRow(result) {
   return <li key={result.item.name}>{label(result)}</li>;
 }
+
+/** The JSX-mounted counterpart to renderRow: same content, called as a component. */
+export function Row({ item }) {
+  return <li>{item.name}</li>;
+}
