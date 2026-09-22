@@ -39,13 +39,22 @@ element, not a call, by JSX's own capitalization convention; a fragment
 to nothing (see the member-resolution limit below: a class has no single id
 in this plugin, only its methods do).
 
-Real limits, in the spirit of the other plugins' resolvers: one object and
-one member only (no `this.a.b()`, no `<Ns.Deep.Thing />`); no inheritance
-(`super`, inherited methods); no dynamic calls (`obj[key]()`, `.call`,
-`.apply`); a function passed as a value (`items.map(fn)`) isn't a call; a
-getter or setter runs on property access, which isn't a call; `export * as
-ns` isn't followed; hand-written `React.createElement(...)` isn't recognized
-as a JSX-shaped call; and top-level statements belong to no Function.
+One extra hop is tracked for a field access: `this.field.m()` and
+`variable.field.m()` resolve when the field's own type is known - a
+constructor parameter property (`constructor(private x: Type)`) or a typed
+field declaration (`x: Type;`) - the same way `variable.m()` needs the
+variable's type known. A getter-backed "field" (`get x(): Type`) isn't
+tracked, so a call through one is left unresolved, not misattributed.
+
+Real limits, in the spirit of the other plugins' resolvers: one object, one
+field and one member at most (no `this.a.b.c()`, no `<Ns.Deep.Thing />`); no
+inheritance (`super`, inherited methods); no dynamic calls (`obj[key]()`,
+`.call`, `.apply`); a function passed as a value (`items.map(fn)`) isn't a
+call; a getter or setter runs on property access, which isn't a call;
+`export * as ns` isn't followed; hand-written `React.createElement(...)`
+isn't recognized as a JSX-shaped call; a static field chain
+(`Class.field.m()`) isn't tracked, only an instance's; and top-level
+statements belong to no Function.
 """
 
 from __future__ import annotations
@@ -102,6 +111,9 @@ class _ModuleInfo:
     top_level: dict[str, str] = field(default_factory=dict)  # fn name -> function id
     # class (or object literal) name -> {member name -> function id}
     classes: dict[str, dict[str, str]] = field(default_factory=dict)
+    # class name -> {field name -> declared type name}, from a typed field declaration or a
+    # constructor parameter property; object literals have neither, so this is always empty for one
+    field_types: dict[str, dict[str, str]] = field(default_factory=dict)
     imports: dict[str, _Import] = field(default_factory=dict)  # local name -> import
     export_aliases: dict[str, str] = field(default_factory=dict)  # `export { local as name }`: name -> local
     default_export: str | None = None  # local name behind `export default`
@@ -558,14 +570,17 @@ class _TypeScriptAnalyzer:
     def _register_members(
         self, mod: _ModuleInfo, owner: str, container: Node | None, source: bytes, source_lines: list[str]
     ) -> None:
-        """Registers a class body's or object literal's function members as `owner.member`."""
+        """Registers a class body's or object literal's function members as `owner.member`, and a class's field types."""
         members = mod.classes.setdefault(owner, {})
+        field_types = mod.field_types.setdefault(owner, {})
         if container is None:
             return
         for member in container.children:
             fn_node = member
             if member.type == "method_definition":
                 name = _member_name(member.child_by_field_name("name"), source)
+                if name == "constructor":
+                    self._register_parameter_properties(field_types, member, source)
                 if name is None or member.child_by_field_name("body") is None:
                     continue
                 accessor = next((c.type for c in member.children if c.type in ("get", "set")), None)
@@ -574,6 +589,10 @@ class _TypeScriptAnalyzer:
             elif member.type in ("public_field_definition", "pair"):
                 key = member.child_by_field_name("name" if member.type == "public_field_definition" else "key")
                 name = _member_name(key, source)
+                if member.type == "public_field_definition":  # object literals have no type annotations to read
+                    type_name = _type_name(member.child_by_field_name("type"), source)
+                    if name and type_name:
+                        field_types[name] = type_name
                 value = member.child_by_field_name("value")
                 if name is None or value is None or value.type not in _FUNCTION_NODE_TYPES:
                     continue
@@ -582,6 +601,22 @@ class _TypeScriptAnalyzer:
                 continue
             info = self._register_function(mod, fn_node, member, name, owner, source, source_lines)
             members[name] = info.id
+
+    @staticmethod
+    def _register_parameter_properties(field_types: dict[str, str], ctor: Node, source: bytes) -> None:
+        """`constructor(private x: Type)` promotes a parameter to an instance field of the same name and type."""
+        params = ctor.child_by_field_name("parameters")
+        if params is None:
+            return
+        for param in params.children:
+            if param.type not in ("required_parameter", "optional_parameter"):
+                continue
+            if not any(c.type in ("accessibility_modifier", "readonly") for c in param.children):
+                continue  # a plain parameter, not one promoted to a field
+            pattern = param.child_by_field_name("pattern")
+            type_name = _type_name(param.child_by_field_name("type"), source)
+            if pattern is not None and pattern.type == "identifier" and type_name:
+                field_types[_text(pattern, source)] = type_name
 
     def _register_function(
         self,
@@ -738,6 +773,53 @@ class _TypeScriptAnalyzer:
         symbol = self._imported_symbol(mod, class_name)
         return symbol[0].classes.get(symbol[1], {}).get(method) if symbol else None
 
+    def _field_type(self, mod: _ModuleInfo, class_name: str, field_name: str) -> tuple[_ModuleInfo, str] | None:
+        """(module to resolve the field's type name in, type name) for `class_name`'s field `field_name`.
+
+        The type name is only meaningful against the module that declared the field - its own file's
+        imports, not the caller's - which is why this returns a module alongside the name, the same
+        shape `_imported_symbol` hands back.
+        """
+        if class_name in mod.field_types:
+            type_name = mod.field_types[class_name].get(field_name)
+            return (mod, type_name) if type_name else None
+        symbol = self._imported_symbol(mod, class_name)
+        if symbol is None:
+            return None
+        owner_mod, local_name = symbol
+        type_name = owner_mod.field_types.get(local_name, {}).get(field_name)
+        return (owner_mod, type_name) if type_name else None
+
+    def _resolve_field_method(
+        self,
+        mod: _ModuleInfo,
+        class_name: str | None,
+        local_types: dict[str, str],
+        field_access: Node,
+        method: str,
+        source: bytes,
+    ) -> str | None:
+        """`this.field.method()` / `variable.field.method()`: one more hop via a known field type.
+
+        `field_access` is the `this.field` / `variable.field` member_expression; its own object must
+        be `this` or a plain identifier - a third hop (`this.a.b.c()`) has no further field type to
+        follow and is left unresolved, same as any other chain this deep.
+        """
+        inner_obj = field_access.child_by_field_name("object")
+        field_name = _member_name(field_access.child_by_field_name("property"), source)
+        if inner_obj is None or field_name is None:
+            return None
+        if inner_obj.type == "this":
+            field_owner = class_name
+        elif inner_obj.type == "identifier":
+            field_owner = local_types.get(_text(inner_obj, source))
+        else:
+            return None
+        if field_owner is None:
+            return None
+        found = self._field_type(mod, field_owner, field_name)
+        return self._method_of(found[0], found[1], method) if found else None
+
     def _make_resolver(self, mod: _ModuleInfo, class_name: str | None, local_types: dict[str, str]):
         source = self.sources_bytes[mod.rel_path]
 
@@ -753,7 +835,8 @@ class _TypeScriptAnalyzer:
                 return symbol[0].top_level.get(symbol[1]) if symbol else None
 
             # this.m(...) / ns.f(...) / Class.staticM(...) / variable.m(...) / new ns.Foo(...)
-            # - one object, one member: no deeper chains (`this.a.b()`), like the other plugins.
+            # - one object, one member, plus the one extra hop below for a field access
+            # (this.field.m() / variable.field.m()); no deeper chains (`this.a.b.c()`).
             if func_node.type == "member_expression":
                 obj = func_node.child_by_field_name("object")
                 member = _member_name(func_node.child_by_field_name("property"), source)
@@ -761,6 +844,8 @@ class _TypeScriptAnalyzer:
                     return None
                 if obj.type == "this":
                     return self._method_of(mod, class_name, member) if class_name and not is_new else None
+                if obj.type == "member_expression":
+                    return None if is_new else self._resolve_field_method(mod, class_name, local_types, obj, member, source)
                 if obj.type != "identifier":
                     return None
                 name = _text(obj, source)
