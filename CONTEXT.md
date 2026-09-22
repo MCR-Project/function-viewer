@@ -21,8 +21,11 @@ _Avoid_: Link, dependency
 The function activated automatically when a project loads: the project's top-level `main`, if it has one.
 _Avoid_: Start function, root function
 
+**Language**:
+What a source file is written in, as shown by its badge, its Explorer icon and its syntax highlighting. A file has exactly one Language.
+
 **Language plugin**:
-The support for one programming language: the piece that knows how to read that language's functions and their calls.
+The support for one programming language, or for a family of closely related ones whose files import each other (TypeScript and JavaScript share one): the piece that knows how to read those languages' functions and their calls. One plugin may read several Languages; each file keeps its own.
 _Avoid_: Parser
 
 ### Roots

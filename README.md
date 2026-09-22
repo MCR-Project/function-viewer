@@ -23,6 +23,8 @@ The goal is to make the flow of a codebase visible instead of jumping between fi
 | --- | --- |
 | Python | `.py` |
 | Rust | `.rs` |
+| TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` |
+| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` |
 
 More languages can be added without touching the frontend - see [Backend](#backend) below.
 
@@ -43,7 +45,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and load a folder or file from the sidebar. Try `sample_project` (Python) or `sample_rust_project` (Rust) for a quick demo.
+Open http://localhost:5173 and load a folder or file from the sidebar. Try `sample_project` (Python), `sample_rust_project` (Rust) or `sample_typescript_project` (TypeScript and JavaScript) for a quick demo.
 
 ## Codebase
 
@@ -52,6 +54,7 @@ backend/            FastAPI + a per-language plugin architecture, static analysi
 frontend/src/        React 19 + React Flow + Zustand, the UI
 sample_project/      Python demo fixture used for manual testing
 sample_rust_project/ Rust demo fixture used for manual testing
+sample_typescript_project/ TypeScript + JavaScript demo fixture used for manual testing
 ```
 
 ### Backend
@@ -60,6 +63,7 @@ sample_rust_project/ Rust demo fixture used for manual testing
 - `languages/`: one module per language, each implementing the same `LanguagePlugin` contract (`languages/base.py`) - parse every file, extract each function's signature/docstring/source lines, and resolve which loaded functions it calls (direct calls, `module.func()`, `self.method()`, constructors/associated functions). Only calls between functions that were actually loaded get resolved. Adding a language means adding one new module here and registering it in `languages/__init__.py`; nothing else changes.
   - `python.py`: parses with the stdlib `ast`.
   - `rust.py`: parses with `tree-sitter` + `tree-sitter-rust` (functions, `impl` methods, `use`-based and bare-path module resolution). Calls made inside a macro invocation (`println!`, `format!`, ...) aren't visible to it - macro arguments are an opaque token stream, not parsed expressions.
+  - `typescript.py`: one plugin for TypeScript and JavaScript, parsed with `tree-sitter` + `tree-sitter-typescript` (the `typescript` grammar for `.ts`, `.tsx` for everything else). It stamps each file with its own language, so a `.ts` file and a `.js` file get their own badge but can call each other. Reads ESM and basic CommonJS imports, resolves relative specifiers and (by unique path suffix) aliases, and ignores `.d.ts` and minified files. There's no separate "JS mode": a missing annotation is just a missing annotation. Its docstring lists exactly what it resolves and what it can't (JSX elements, inheritance, dynamic calls, ...).
 - `main.py`: the FastAPI app. `GET /api/browse` powers the server-side folder picker, `POST /api/analyze` runs the analyzer and returns the graph as JSON. Also serves the built frontend in production.
 
 ### Frontend
@@ -72,7 +76,7 @@ sample_rust_project/ Rust demo fixture used for manual testing
 - `components/FolderFrame.tsx`: the folder style group frame used in folder mode.
 - `components/Sidebar.tsx`, `FileTree.tsx`, `SearchBar.tsx`, `PathBrowser.tsx`: import controls, a nested directory tree, search, and the server-side folder browser.
 - `components/LanguageIcon.tsx`: the small per-file language badge shown in the Explorer.
-- `languages.ts`: the frontend's mirror of the backend's language registry - id, label, extensions, icon color per language. Adding a language to the backend also means adding one entry here.
+- `languages.ts`: the frontend's mirror of the backend's language registry - id, label, extensions, icon color per language, plus two optional settings (`prism`, a highlighting grammar not named like the id; `unannotatedReturn`, what a card shows when a return type is missing). Adding a language to the backend also means adding one entry here.
 - `api.ts`, `types.ts`, `colors.ts`: fetch wrapper, wire format types, and per file color hashing.
 - `theme.ts`, `components/ThemeToggle.tsx`: the theme preference (System, Light or Dark), the System theme tracking, and the topbar toggle. The resolved theme is set as `data-theme` on `<html>`, and every color in `index.css` is a token that the Light theme overrides.
 

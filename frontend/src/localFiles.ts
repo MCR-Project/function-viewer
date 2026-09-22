@@ -2,7 +2,22 @@ import type { FileUpload } from "./api";
 import { SUPPORTED_EXTENSIONS } from "./languages";
 
 // Mirrors backend/languages/base.py's SKIP_DIRS so junk trees (venvs, caches, build output) never get uploaded.
-const SKIP_DIRS = new Set(["__pycache__", "node_modules", ".git", ".venv", "venv", ".tox", ".mypy_cache", "target"]);
+const SKIP_DIRS = new Set([
+  "__pycache__",
+  "node_modules",
+  ".git",
+  ".venv",
+  "venv",
+  ".tox",
+  ".mypy_cache",
+  "target",
+  "dist",
+  "build",
+]);
+
+// Files that match a supported extension but hold no code worth reading: type declarations (no bodies)
+// and minified bundles (build output). Mirrors _is_skipped_file in backend/languages/typescript.py.
+const SKIP_FILE = /\.(d\.[mc]?ts|min\.[mc]?js)$/;
 
 function relativePath(file: File): string {
   const raw = (file.webkitRelativePath || file.name).replace(/\\/g, "/");
@@ -27,7 +42,7 @@ export async function collectSourceFiles(fileList: FileList): Promise<{ root: st
   // still fires a change event), which clears this same live FileList once
   // we hit the first `await` below.
   const picked = Array.from(fileList).filter(
-    (f) => SUPPORTED_EXTENSIONS.some((ext) => f.name.endsWith(ext)) && !isSkipped(relativePath(f)),
+    (f) => SUPPORTED_EXTENSIONS.some((ext) => f.name.endsWith(ext)) && !SKIP_FILE.test(f.name) && !isSkipped(relativePath(f)),
   );
   const first = picked[0];
   const root = first?.webkitRelativePath ? first.webkitRelativePath.split("/")[0] : (first?.name ?? "");

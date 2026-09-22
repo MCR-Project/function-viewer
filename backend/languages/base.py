@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 # Directories skipped while walking a disk tree, shared across all languages
 # (build/dependency/vcs dirs a source scan should never descend into).
-SKIP_DIRS = {"__pycache__", "node_modules", ".git", ".venv", "venv", ".tox", ".mypy_cache", "target"}
+SKIP_DIRS = {"__pycache__", "node_modules", ".git", ".venv", "venv", ".tox", ".mypy_cache", "target", "dist", "build"}
 
 
 @dataclass
@@ -55,7 +55,7 @@ class FunctionInfo:
 class LanguagePlugin(ABC):
     """One entry in the language registry (see languages/__init__.py)."""
 
-    id: str  # "python", "rust" - also stamped onto each file/function in the response
+    id: str  # "python", "rust" - stamped onto each file/function unless the plugin sets its own
     label: str  # "Python", "Rust"
     extensions: frozenset[str]  # {".py"}, {".rs"} - dot-prefixed, lowercase
 
@@ -66,4 +66,8 @@ class LanguagePlugin(ABC):
         Returns {"files": [...], "functions": {...}, "edges": [...]} - the
         same shape the top-level analyzer.py dispatcher returns, scoped to
         just this language's files.
+
+        A plugin that reads a family of related languages (TypeScript and
+        JavaScript) sets "language" on each file and function entry itself;
+        the dispatcher only fills it in, with `id`, where it is missing.
         """
