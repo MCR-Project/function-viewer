@@ -64,7 +64,7 @@ import tree_sitter_typescript
 from dataclasses import dataclass, field
 from tree_sitter import Language, Node, Parser
 
-from .base import FunctionInfo, LanguagePlugin
+from .base import FunctionInfo, LanguagePlugin, build_edges, dedupe_calls
 
 _TS_GRAMMAR = Language(tree_sitter_typescript.language_typescript())
 _TSX_GRAMMAR = Language(tree_sitter_typescript.language_tsx())
@@ -360,6 +360,7 @@ class _TypeScriptAnalyzer:
         self.file_errors: dict[str, str] = {}
         self.file_functions: dict[str, list[str]] = {}
         self._specifier_cache: dict[tuple[str, str], _ModuleInfo | None] = {}
+        self._nodes: dict[str, Node] = {}  # func id -> its AST node, pass 1 to pass 2
 
     def analyze(self) -> dict:
         self._parse_files()
@@ -658,7 +659,7 @@ class _TypeScriptAnalyzer:
         )
         self.functions[func_id] = info
         self.file_functions[mod.rel_path].append(func_id)
-        info._node = fn_node  # type: ignore[attr-defined]
+        self._nodes[func_id] = fn_node
         return info
 
     # -- pass 2: resolve calls --
@@ -666,7 +667,7 @@ class _TypeScriptAnalyzer:
     def _resolve_calls(self) -> None:
         for info in self.functions.values():
             mod = self.modules[info.file]
-            node = info._node  # type: ignore[attr-defined]
+            node = self._nodes.pop(info.id)
             body = node.child_by_field_name("body")
 
             resolver = self._make_resolver(mod, info.class_name, _collect_local_types(node, self.sources_bytes[mod.rel_path]))
@@ -674,15 +675,7 @@ class _TypeScriptAnalyzer:
             if body is not None:
                 collector.visit(body)
 
-            line_index = {cl["lineno"]: cl for cl in info.code_lines}
-            seen: set[str] = set()
-            for lineno, target in collector.found:
-                if lineno in line_index and target not in line_index[lineno]["calls"]:
-                    line_index[lineno]["calls"].append(target)
-                if target not in seen:
-                    seen.add(target)
-                    info.calls.append(target)
-            del info._node  # type: ignore[attr-defined]
+            dedupe_calls(info, collector.found)
 
     # -- module and export resolution --
 
@@ -872,11 +865,7 @@ class _TypeScriptAnalyzer:
     # -- output --
 
     def _to_response(self) -> dict:
-        edges = []
-        for info in self.functions.values():
-            for cl in info.code_lines:
-                for target in cl["calls"]:
-                    edges.append({"source": info.id, "target": target, "line": cl["lineno"]})
+        edges = build_edges(self.functions)
         files = [
             {
                 "path": rel_path,
