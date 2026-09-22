@@ -18,7 +18,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 
-from .base import FunctionInfo, LanguagePlugin
+from .base import FunctionInfo, LanguagePlugin, build_edges, dedupe_calls
 
 
 @dataclass
@@ -202,6 +202,7 @@ class _Analyzer:
         self.functions: dict[str, FunctionInfo] = {}
         self.file_errors: dict[str, str] = {}  # rel_path -> error message
         self.file_functions: dict[str, list[str]] = {}  # rel_path -> [function ids]
+        self._nodes: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}  # func id -> its AST node, pass 1 to pass 2
 
     def analyze(self) -> dict:
         self._parse_files()
@@ -280,8 +281,7 @@ class _Analyzer:
         )
         self.functions[func_id] = info
         self.file_functions[mod.rel_path].append(func_id)
-        # stash the AST node for pass 2
-        info._node = node  # type: ignore[attr-defined]
+        self._nodes[func_id] = node
         return info
 
     # -- pass 2: resolve calls --
@@ -291,18 +291,10 @@ class _Analyzer:
             mod = self.modules[info.module]
             resolver = self._make_resolver(mod)
             collector = _CallCollector(resolver, info.class_name)
-            node = info._node  # type: ignore[attr-defined]
+            node = self._nodes.pop(info.id)
             for child in node.body:
                 collector.visit(child)
-            line_index = {cl["lineno"]: cl for cl in info.code_lines}
-            seen: set[str] = set()
-            for lineno, target in collector.found:
-                if lineno in line_index and target not in line_index[lineno]["calls"]:
-                    line_index[lineno]["calls"].append(target)
-                if target not in seen:
-                    seen.add(target)
-                    info.calls.append(target)
-            del info._node  # type: ignore[attr-defined]
+            dedupe_calls(info, collector.found)
 
     def _resolve_class(self, name: str, mod: ModuleInfo) -> tuple[ModuleInfo, str] | None:
         """If `name` refers to a class visible in `mod` (defined locally or imported), return (owning module, class name)."""
@@ -372,11 +364,7 @@ class _Analyzer:
     # -- output --
 
     def _to_response(self) -> dict:
-        edges = []
-        for info in self.functions.values():
-            for cl in info.code_lines:
-                for target in cl["calls"]:
-                    edges.append({"source": info.id, "target": target, "line": cl["lineno"]})
+        edges = build_edges(self.functions)
         files = [
             {
                 "path": rel_path,

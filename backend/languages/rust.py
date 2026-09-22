@@ -32,10 +32,11 @@ expressions.
 from __future__ import annotations
 
 import tree_sitter_rust
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from tree_sitter import Language, Node, Parser
 
-from .base import FunctionInfo, LanguagePlugin
+from .base import FunctionInfo, LanguagePlugin, build_edges, dedupe_calls
 
 _RUST_LANGUAGE = Language(tree_sitter_rust.language())
 
@@ -265,6 +266,8 @@ class _RustAnalyzer:
         self.functions: dict[str, FunctionInfo] = {}
         self.file_errors: dict[str, str] = {}
         self.file_functions: dict[str, list[str]] = {}
+        self._nodes: dict[str, Node] = {}  # func id -> its AST node, pass 1 to pass 2
+        self._param_types: dict[str, dict[str, str]] = {}  # func id -> its params' inferred types, pass 1 to pass 2
 
     def analyze(self) -> dict:
         self._parse_files()
@@ -411,8 +414,8 @@ class _RustAnalyzer:
         )
         self.functions[func_id] = info
         self.file_functions[mod.rel_path].append(func_id)
-        info._node = fn_node  # type: ignore[attr-defined]
-        info._param_types = _extract_param_types(fn_node, source)  # type: ignore[attr-defined]
+        self._nodes[func_id] = fn_node
+        self._param_types[func_id] = _extract_param_types(fn_node, source)
         return info
 
     # -- pass 2: resolve calls --
@@ -420,11 +423,11 @@ class _RustAnalyzer:
     def _resolve_calls(self) -> None:
         for info in self.functions.values():
             mod = self.modules[info.module]
-            node = info._node  # type: ignore[attr-defined]
+            node = self._nodes.pop(info.id)
             source = self.sources_bytes[mod.rel_path]
             body = node.child_by_field_name("body")
 
-            local_types = dict(info._param_types)  # type: ignore[attr-defined]
+            local_types = dict(self._param_types.pop(info.id))
             if body is not None:
                 local_types.update(_collect_let_types(body, source))
 
@@ -434,16 +437,13 @@ class _RustAnalyzer:
                 for child in body.children:
                     collector.visit(child)
 
-            line_index = {cl["lineno"]: cl for cl in info.code_lines}
-            seen: set[str] = set()
-            for lineno, target in collector.found:
-                if lineno in line_index and target not in line_index[lineno]["calls"]:
-                    line_index[lineno]["calls"].append(target)
-                if target not in seen:
-                    seen.add(target)
-                    info.calls.append(target)
-            del info._node  # type: ignore[attr-defined]
-            del info._param_types  # type: ignore[attr-defined]
+            dedupe_calls(info, collector.found)
+
+    def _crate_candidates(self, crate_name: str) -> Iterator[RustModuleInfo]:
+        """Every module belonging to `crate_name` - itself or a descendant of its `::` path."""
+        for candidate in self.modules.values():
+            if candidate.module == crate_name or candidate.module.startswith(crate_name + "::"):
+                yield candidate
 
     def _resolve_method_on_type(self, mod: RustModuleInfo, type_name: str, method: str) -> str | None:
         """Resolves `<a value or type of type_name>.method()` / `TypeName::method()`."""
@@ -462,18 +462,10 @@ class _RustAnalyzer:
         return None
 
     def _find_impl_in_crate(self, crate_name: str, type_name: str) -> RustModuleInfo | None:
-        for candidate in self.modules.values():
-            if candidate.module == crate_name or candidate.module.startswith(crate_name + "::"):
-                if type_name in candidate.classes:
-                    return candidate
-        return None
+        return next((c for c in self._crate_candidates(crate_name) if type_name in c.classes), None)
 
     def _find_fn_in_crate(self, crate_name: str, fn_name: str) -> RustModuleInfo | None:
-        for candidate in self.modules.values():
-            if candidate.module == crate_name or candidate.module.startswith(crate_name + "::"):
-                if fn_name in candidate.top_level:
-                    return candidate
-        return None
+        return next((c for c in self._crate_candidates(crate_name) if fn_name in c.top_level), None)
 
     def _find_submodule_in_crate(self, crate_name: str, base: str) -> RustModuleInfo | None:
         """The one module in `crate_name` whose own path ends in `::base` - i.e. `base` really is a
@@ -484,11 +476,7 @@ class _RustAnalyzer:
         matching by name alone there would wire the call to an unrelated same-named function anywhere
         in the crate. Requiring `base` itself to be a real, unique module name avoids that.
         """
-        matches = [
-            candidate
-            for candidate in self.modules.values()
-            if candidate.module.startswith(crate_name + "::") and candidate.module.rsplit("::", 1)[-1] == base
-        ]
+        matches = [c for c in self._crate_candidates(crate_name) if c.module.rsplit("::", 1)[-1] == base]
         return matches[0] if len(matches) == 1 else None
 
     @staticmethod
@@ -576,11 +564,7 @@ class _RustAnalyzer:
     # -- output --
 
     def _to_response(self) -> dict:
-        edges = []
-        for info in self.functions.values():
-            for cl in info.code_lines:
-                for target in cl["calls"]:
-                    edges.append({"source": info.id, "target": target, "line": cl["lineno"]})
+        edges = build_edges(self.functions)
         files = [
             {"path": rel_path, "functions": ids, "error": self.file_errors.get(rel_path)}
             for rel_path, ids in sorted(self.file_functions.items())
