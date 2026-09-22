@@ -7,6 +7,18 @@ Visualizes a codebase's function call graph as draggable Blueprint-style cards. 
 Run from the repo root unless noted. Dev machine is Windows; both PowerShell and Git Bash work.
 
 ```sh
+# Preferred: Docker Compose (no local venv or node_modules to manage)
+docker compose up               # backend on :8000 (--reload), frontend on :5173 (HMR)
+docker compose up --build       # after changing backend/requirements.txt or frontend/package.json
+```
+
+`compose.yaml` and `backend/Dockerfile.dev` / `frontend/Dockerfile.dev` are dev-only — they're
+unrelated to the root `Dockerfile` used for the Render deploy (see CI/CD below).
+
+<details>
+<summary>Fallback: running without Docker</summary>
+
+```sh
 # Backend (Python 3.10+; CI and Docker use 3.11)
 pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --reload --port 8000
@@ -22,13 +34,15 @@ npm run lint     # oxlint
 python -m backend.analyzer sample_project
 ```
 
+</details>
+
 ## Verifying a change
 
 There is **no test suite**. Verify by hand:
 
-- Frontend: `npm run build` and `npm run lint` in `frontend/`.
-- Backend: start uvicorn and `GET /api/health`.
-- Analyzer or language-plugin changes: run `python -m backend.analyzer` on `sample_project`, `sample_rust_project` and `sample_typescript_project` before and after, and compare function and edge counts. An unexplained drop in edges is a regression.
+- Frontend: `docker compose exec frontend npm run build` and `docker compose exec frontend npm run lint` (or run them in `frontend/` without Docker).
+- Backend: with `docker compose up` running, `GET localhost:8000/api/health`.
+- Analyzer or language-plugin changes: `docker compose exec backend python -m backend.analyzer <path>` on `sample_project`, `sample_rust_project` and `sample_typescript_project` before and after, and compare function and edge counts. An unexplained drop in edges is a regression.
 
 CI (`.github/workflows/pr-checks.yml`) only runs the frontend build and the backend health check. It does not lint and does not exercise the analyzer, so green CI says little about analysis correctness.
 
