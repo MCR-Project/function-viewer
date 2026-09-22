@@ -52,6 +52,34 @@ class FunctionInfo:
         }
 
 
+def dedupe_calls(info: FunctionInfo, found: list[tuple[int, str]]) -> None:
+    """Folds a function's raw (lineno, callee-id) hits into its code lines and its own
+    unique `calls` list. Shared by every plugin's pass-2 call resolution: each callee
+    is recorded once per calling line and once overall, regardless of how many lines
+    or expressions on that line call it.
+    """
+    line_index = {cl["lineno"]: cl for cl in info.code_lines}
+    seen: set[str] = set()
+    for lineno, target in found:
+        if lineno in line_index and target not in line_index[lineno]["calls"]:
+            line_index[lineno]["calls"].append(target)
+        if target not in seen:
+            seen.add(target)
+            info.calls.append(target)
+
+
+def build_edges(functions: dict[str, FunctionInfo]) -> list[dict]:
+    """One {"source", "target", "line"} entry per resolved call, read back off
+    each function's own code lines. Shared by every plugin's response building.
+    """
+    edges = []
+    for info in functions.values():
+        for cl in info.code_lines:
+            for target in cl["calls"]:
+                edges.append({"source": info.id, "target": target, "line": cl["lineno"]})
+    return edges
+
+
 class LanguagePlugin(ABC):
     """One entry in the language registry (see languages/__init__.py)."""
 
