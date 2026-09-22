@@ -28,7 +28,7 @@ There is **no test suite**. Verify by hand:
 
 - Frontend: `npm run build` and `npm run lint` in `frontend/`.
 - Backend: start uvicorn and `GET /api/health`.
-- Analyzer or language-plugin changes: run `python -m backend.analyzer` on `sample_project` and `sample_rust_project` before and after, and compare function and edge counts. An unexplained drop in edges is a regression.
+- Analyzer or language-plugin changes: run `python -m backend.analyzer` on `sample_project`, `sample_rust_project` and `sample_typescript_project` before and after, and compare function and edge counts. An unexplained drop in edges is a regression.
 
 CI (`.github/workflows/pr-checks.yml`) only runs the frontend build and the backend health check. It does not lint and does not exercise the analyzer, so green CI says little about analysis correctness.
 
@@ -36,7 +36,7 @@ CI (`.github/workflows/pr-checks.yml`) only runs the frontend build and the back
 
 - **The server never reads the visitor's filesystem.** The browser reads picked files and POSTs `{root, files: [{path, content}]}` to `/api/analyze`. `analyze_path()` and the disk walk in `analyzer.py` exist for the CLI only.
 - **The wire format is a two-sided contract.** Backend `FunctionInfo.to_dict()` (`backend/languages/base.py`) emits camelCase; `frontend/src/types.ts` mirrors it by hand. Change one, change the other.
-- **`SKIP_DIRS` is duplicated** in `backend/languages/base.py` and `frontend/src/localFiles.ts`. Keep them in sync.
+- **`SKIP_DIRS` is duplicated** in `backend/languages/base.py` and `frontend/src/localFiles.ts`. Keep them in sync. So is the rule that drops `.d.ts` and `*.min.js` (`_is_skipped_file` in `typescript.py`, `SKIP_FILE` in `localFiles.ts`).
 - **The theme is applied in two places.** The inline script in `frontend/index.html` sets `data-theme` before first paint, and `frontend/src/theme.ts` owns it afterwards. They share the storage key and the resolution rules; keep them in sync. Colors belong in the tokens at the top of `index.css`, never as literals (the function card header and the language badge text are the deliberately theme-independent surfaces).
 - **Paths must be relative to the picked folder's contents**, with the folder's own name stripped (`localFiles.ts`). Module-name derivation and import resolution in the plugins depend on it.
 - **Vocabulary lives in `CONTEXT.md`; use its terms.** The code hasn't caught up on two of them: **File mode** is still `"folder"` in the code (`OrgMode`, `FolderFrame`, `layoutFolderGraph`), and **Trace up / Trace down** is still `showFlow`. Don't rename these as a drive-by; use the glossary term in prose and the code name in code.

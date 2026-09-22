@@ -3,7 +3,11 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import Prism from "prismjs";
 import "prismjs/components/prism-python";
 import "prismjs/components/prism-rust";
+import "prismjs/components/prism-typescript";
+import "prismjs/components/prism-jsx";
+import "prismjs/components/prism-tsx";
 import { fileColor } from "../colors";
+import { languageForId } from "../languages";
 import { useViewer } from "../store";
 import type { FunctionInfo } from "../types";
 
@@ -39,6 +43,8 @@ function Docstring({ text }: { text: string }) {
 }
 
 function Signature({ fn }: { fn: FunctionInfo }) {
+  const unannotated = languageForId(fn.language)?.unannotatedReturn;
+  const returns = fn.returns ?? (unannotated === undefined ? "None" : unannotated);
   return (
     <span className="fn-sig">
       (
@@ -50,7 +56,13 @@ function Signature({ fn }: { fn: FunctionInfo }) {
           {p.default && <span className="p-ann"> = {p.default}</span>}
         </span>
       ))}
-      ) <span className="p-ret">→ {fn.returns ?? "None"}</span>
+      )
+      {returns !== null && (
+        <>
+          {" "}
+          <span className="p-ret">→ {returns}</span>
+        </>
+      )}
     </span>
   );
 }
@@ -64,8 +76,9 @@ function FunctionNodeInner({ data, selected }: NodeProps<FunctionNodeType>) {
   const color = fileColor(fn.file);
 
   const highlighted = useMemo(() => {
-    const grammar = Prism.languages[fn.language] ?? Prism.languages.python;
-    return fn.codeLines.map((line) => Prism.highlight(line.text, grammar, fn.language));
+    const grammarName = languageForId(fn.language)?.prism ?? fn.language;
+    const grammar = Prism.languages[grammarName] ?? Prism.languages.python;
+    return fn.codeLines.map((line) => Prism.highlight(line.text, grammar, grammarName));
   }, [fn.codeLines, fn.language]);
 
   const dotTitle = isActive ? "Active, click to disable" : "Inactive, click to enable";

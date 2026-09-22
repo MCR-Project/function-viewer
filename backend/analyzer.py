@@ -51,11 +51,13 @@ def analyze_sources(sources: dict[str, str], root: str = "") -> dict:
         if not lang_sources:
             continue
         result = lang.analyze(lang_sources)
+        # A plugin that reads several languages stamps each file/function itself;
+        # otherwise everything it returned is in the plugin's own language.
         for file_entry in result["files"]:
-            file_entry["language"] = lang.id
+            file_entry.setdefault("language", lang.id)
             files.append(file_entry)
         for func_id, func in result["functions"].items():
-            func["language"] = lang.id
+            func.setdefault("language", lang.id)
             functions[func_id] = func
         edges.extend(result["edges"])
 
