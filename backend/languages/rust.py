@@ -17,12 +17,16 @@ function-parameter annotation or its `let` binding (explicit type, a
 inference (e.g. through a struct field, or a reassignment) is out of
 scope, same as python.py's own resolver only handling direct references.
 
-Two further real limits: `use` paths are resolved by name, not by
-following actual re-exports, so a type imported through a `pub use` chain
-is found via a crate-wide fallback search rather than the exact
-re-exporting module. And calls made inside a macro invocation
-(`println!(...)`, `format!(...)`, etc.) are invisible: tree-sitter parses a
-macro's arguments as an opaque token stream, not as expressions.
+Two further real limits: `use` paths and bare module paths alike are
+resolved by name, not by following actual re-exports or the real `mod`
+tree, so a callee that isn't exactly one level below its crate root - a
+type reached through a `pub use` chain, or any module of a `src/`-less
+crate that's nested under a picked folder (the whole nesting prefix ends up
+inside the module name, not just the crate name) - is found via a
+crate-wide fallback search instead. And calls made inside a macro
+invocation (`println!(...)`, `format!(...)`, etc.) are invisible:
+tree-sitter parses a macro's arguments as an opaque token stream, not as
+expressions.
 """
 
 from __future__ import annotations
@@ -471,6 +475,27 @@ class _RustAnalyzer:
                     return candidate
         return None
 
+    def _find_submodule_in_crate(self, crate_name: str, base: str) -> RustModuleInfo | None:
+        """The one module in `crate_name` whose own path ends in `::base` - i.e. `base` really is a
+        submodule, just not exactly one level below the crate root as the direct guess assumes.
+
+        Unlike `_find_fn_in_crate`, this doesn't search by function name: `base` in `module::func()`
+        might not name a module at all (a std type used without a `use`, e.g. `Vec::new()`), and
+        matching by name alone there would wire the call to an unrelated same-named function anywhere
+        in the crate. Requiring `base` itself to be a real, unique module name avoids that.
+        """
+        matches = [
+            candidate
+            for candidate in self.modules.values()
+            if candidate.module.startswith(crate_name + "::") and candidate.module.rsplit("::", 1)[-1] == base
+        ]
+        return matches[0] if len(matches) == 1 else None
+
+    @staticmethod
+    def _top_level_fn(module_info: RustModuleInfo | None, fn_name: str) -> str | None:
+        """`fn_name`'s id among `module_info`'s top-level functions, or None if either isn't there."""
+        return module_info.top_level.get(fn_name) if module_info else None
+
     def _make_resolver(self, mod: RustModuleInfo, local_types: dict[str, str]):
         def resolve(func_node: Node, class_name: str | None) -> str | None:
             source = self.sources_bytes[mod.rel_path]
@@ -482,12 +507,8 @@ class _RustAnalyzer:
                     return mod.top_level[name]
                 if name in mod.from_imports:
                     module_hint, original = mod.from_imports[name]
-                    target_mod = self.modules.get(module_hint)
-                    if target_mod and original in target_mod.top_level:
-                        return target_mod.top_level[original]
-                    fallback_mod = self._find_fn_in_crate(module_hint.split("::")[0], original)
-                    if fallback_mod:
-                        return fallback_mod.top_level[original]
+                    found = self._top_level_fn(self.modules.get(module_hint), original)
+                    return found or self._top_level_fn(self._find_fn_in_crate(module_hint.split("::")[0], original), original)
                 return None
 
             # Type::method(...) / module::func(...) - single path segment only,
@@ -511,21 +532,27 @@ class _RustAnalyzer:
                 # not a type - maybe `base` is a module alias: module::func()
                 if base in mod.from_imports:
                     module_hint, original = mod.from_imports[base]
-                    target_mod = self.modules.get(_join_module(module_hint, original))
-                    if target_mod and method in target_mod.top_level:
-                        return target_mod.top_level[method]
-                    fallback_mod = self._find_fn_in_crate(module_hint.split("::")[0], method)
-                    if fallback_mod:
-                        return fallback_mod.top_level[method]
+                    found = self._top_level_fn(self.modules.get(_join_module(module_hint, original)), method)
+                    found = found or self._top_level_fn(self._find_fn_in_crate(module_hint.split("::")[0], method), method)
+                    if found:
+                        return found
 
                 # bare module path with no `use` needed, e.g. `helpers::helper_fn()`
                 if base in self.crate_names:
                     direct_mod = self.modules.get(base)
                 else:
                     direct_mod = self.modules.get(mod.crate_name if base == "crate" else f"{mod.crate_name}::{base}")
-                if direct_mod and method in direct_mod.top_level:
-                    return direct_mod.top_level[method]
-                return None
+                found = self._top_level_fn(direct_mod, method)
+                if found:
+                    return found
+                if base in self.crate_names:
+                    return None  # a whole sibling crate nested deeper: Cargo-workspace-aware detection, out of scope
+                # the one-level-below-crate-root guess missed - e.g. a src-less crate nested
+                # under a picked folder puts the whole nesting prefix inside every module name
+                # here. Only worth another look when `base` is a genuine submodule of this crate,
+                # not just any function of that name - `base` may not be a module at all (a std
+                # type used bare, e.g. `Vec::new()`, already failed the type check above).
+                return self._top_level_fn(self._find_submodule_in_crate(mod.crate_name, base), method)
 
             # self.method(...) / variable.method() when the variable's type is known
             if func_node.type == "field_expression":
