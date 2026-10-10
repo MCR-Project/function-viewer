@@ -348,7 +348,7 @@ export function GraphCanvas() {
         <div className="empty-state">
           <div className="glyph">⬡</div>
           <div className="title">Function Viewer</div>
-          <div className="sub">Load a Python or Rust file or folder from the sidebar to draw its call graph.</div>
+          <div className="sub">Load a Python, Rust, TypeScript, JavaScript or C file or folder from the sidebar to draw its call graph.</div>
         </div>
       )}
       <ReactFlow
