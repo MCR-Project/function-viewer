@@ -42,7 +42,7 @@ There is **no test suite**. Verify by hand:
 
 - Frontend: `docker compose exec frontend npm run build` and `docker compose exec frontend npm run lint` (or run them in `frontend/` without Docker).
 - Backend: with `docker compose up` running, `GET localhost:8000/api/health`.
-- Analyzer or language-plugin changes: `docker compose exec backend python -m backend.analyzer <path>` on `sample_project`, `sample_rust_project` and `sample_typescript_project` before and after, and compare function and edge counts. An unexplained drop in edges is a regression.
+- Analyzer or language-plugin changes: `docker compose exec backend python -m backend.analyzer <path>` on `sample_project`, `sample_rust_project`, `sample_typescript_project` and `sample_c_project` before and after, and compare function and edge counts. An unexplained drop in edges is a regression.
 
 CI (`.github/workflows/pr-checks.yml`) only runs the frontend build and the backend health check. It does not lint and does not exercise the analyzer, so green CI says little about analysis correctness.
 
