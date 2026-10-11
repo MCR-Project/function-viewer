@@ -25,7 +25,7 @@ _Avoid_: Start function, root function
 What a source file is written in, as shown by its badge, its Explorer icon and its syntax highlighting. A file has exactly one Language.
 
 **Language plugin**:
-The support for one programming language, or for a family of closely related ones whose files import each other (TypeScript and JavaScript share one): the piece that knows how to read those languages' functions and their calls. One plugin may read several Languages; each file keeps its own.
+The support for one programming language, or for a family of closely related ones whose files import each other (TypeScript and JavaScript share one): the piece that knows how to read those languages' functions and their calls. One plugin may read several Languages; each file keeps its own. C and C++ are separate plugins, so no Call edge joins a C file to a C++ one (a `.h` file goes to whichever of the two reads its Picked root).
 _Avoid_: Parser
 
 ### Roots

@@ -25,7 +25,8 @@ The goal is to make the flow of a codebase visible instead of jumping between fi
 | Rust | `.rs` |
 | TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` |
 | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` |
-| C | `.c`, `.h` |
+| C | `.c`, `.h` (unless the folder also holds C++ files) |
+| C++ | `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh`, `.hxx`, plus `.h` when the folder also holds C++ files |
 
 More languages can be added without touching the frontend - see [Backend](#backend) below.
 
@@ -46,7 +47,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and load a folder or file from the sidebar. Try `sample_project` (Python), `sample_rust_project` (Rust), `sample_typescript_project` (TypeScript and JavaScript) or `sample_c_project` (C) for a quick demo.
+Open http://localhost:5173 and load a folder or file from the sidebar. Try `sample_project` (Python), `sample_rust_project` (Rust), `sample_typescript_project` (TypeScript and JavaScript), `sample_c_project` (C) or `sample_cpp_project` (C++) for a quick demo.
 
 ## Codebase
 
@@ -57,16 +58,18 @@ sample_project/      Python demo fixture used for manual testing
 sample_rust_project/ Rust demo fixture used for manual testing
 sample_typescript_project/ TypeScript + JavaScript demo fixture used for manual testing
 sample_c_project/    C demo fixture used for manual testing
+sample_cpp_project/  C++ demo fixture used for manual testing
 ```
 
 ### Backend
 
-- `analyzer.py`: the dispatcher. Groups the files it's given by extension, hands each slice to its language plugin, and merges the results into one graph. Function and file ids are namespaced by path, so merging across languages can't collide.
+- `analyzer.py`: the dispatcher. Groups the files it's given by extension, hands each slice to its language plugin, and merges the results into one graph. An extension normally belongs to one plugin, but a plugin may claim one conditionally per load (`conditional_extensions` and `claims()` in `languages/base.py`); that is how `.h` goes to C or C++. Function and file ids are namespaced by path, so merging across languages can't collide.
 - `languages/`: one module per language, each implementing the same `LanguagePlugin` contract (`languages/base.py`) - parse every file, extract each function's signature/docstring/source lines, and resolve which loaded functions it calls (direct calls, `module.func()`, `self.method()`, constructors/associated functions). Only calls between functions that were actually loaded get resolved. Adding a language means adding one new module here and registering it in `languages/__init__.py`; nothing else changes.
   - `python.py`: parses with the stdlib `ast`.
   - `rust.py`: parses with `tree-sitter` + `tree-sitter-rust` (functions, `impl` methods, `use`-based and bare-path module resolution). Calls made inside a macro invocation (`println!`, `format!`, ...) aren't visible to it - macro arguments are an opaque token stream, not parsed expressions.
   - `typescript.py`: one plugin for TypeScript and JavaScript, parsed with `tree-sitter` + `tree-sitter-typescript` (the `typescript` grammar for `.ts`, `.tsx` for everything else). It stamps each file with its own language, so a `.ts` file and a `.js` file get their own badge but can call each other. Reads ESM and basic CommonJS imports, resolves relative specifiers and (by unique path suffix) aliases, and ignores `.d.ts` and minified files. There's no separate "JS mode": a missing annotation is just a missing annotation. Its docstring lists exactly what it resolves and what it can't (JSX elements, inheritance, dynamic calls, ...).
-  - `c.py` (with `cfamily.py`, tree-sitter helpers meant to be shared with a C++ plugin): parses with `tree-sitter` + `tree-sitter-c` and owns `.c` and `.h`. Only definitions are Functions; a prototype in a header never is, but its comment documents a definition that has none. Calls are resolved by name in C's own visibility order: the same file, then files reached through quoted `#include "..."` (and the `.c` file implementing an included header), then the one non-static definition anywhere in the picked folder. A `static` function is visible only in its own file, and two or more candidates mean no wire rather than a guess. Nothing is preprocessed or compiled, so functions defined by macros aren't Functions, calls hidden in macro bodies are invisible, every `#ifdef` branch is parsed, and function-pointer calls (`cb(x)`, `s->handler(x)`) aren't linked, including a call through a parameter or local variable named like a loaded function. A file tree-sitter can't fully parse is flagged but keeps the functions it recovered.
+  - `c.py` (with `cfamily.py`, tree-sitter helpers shared by the C and C++ plugins): parses with `tree-sitter` + `tree-sitter-c` and owns `.c`, and `.h` unless the C++ plugin claims it. Only definitions are Functions; a prototype in a header never is, but its comment documents a definition that has none. Calls are resolved by name in C's own visibility order: the same file, then files reached through quoted `#include "..."` (and the `.c` file implementing an included header), then the one non-static definition anywhere in the picked folder. A `static` function is visible only in its own file, and two or more candidates mean no wire rather than a guess. Nothing is preprocessed or compiled, so functions defined by macros aren't Functions, calls hidden in macro bodies are invisible, every `#ifdef` branch is parsed, and function-pointer calls (`cb(x)`, `s->handler(x)`) aren't linked, including a call through a parameter or local variable named like a loaded function. A file tree-sitter can't fully parse is flagged but keeps the functions it recovered.
+  - `cpp.py`: parses with `tree-sitter` + `tree-sitter-cpp`, owns `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh` and `.hxx`, and claims `.h` when the picked folder holds any of those (a C-only folder's headers stay C). C and C++ are separate plugins, so no wire joins a C file to a C++ one. Functions are definitions with a body: free functions, methods defined in or out of their class, constructors, destructors and operators; lambdas aren't Functions, and a template is one Function. `qualname` is the scoped name (`ns::Class::method`); overloads defined in one file get their parameter types appended (`add(int)`, `at(int) const`), a name defined once keeps its plain name. Calls resolve by name through C++'s scopes (the enclosing class and its loaded bases, enclosing namespaces, `using` declarations, then C's include-based visibility), and when a step finds several candidates the call links only if the argument count leaves exactly one. A member call resolves by the receiver's declared type (a parameter, local variable or data member; smart pointers and aliases unwrapped), falling back to the one loaded method of that name when the type isn't visible (`auto`, a template parameter). Nothing is preprocessed or compiled: no template instantiation, no argument-dependent lookup, no overload resolution by argument types; operator expressions and calls through function pointers or `std::function` aren't linked, and virtual dispatch isn't followed, so a call through a `Base *` links to `Base::run`, never to every override. Macros hide functions and calls as in C.
 - `main.py`: the FastAPI app. `GET /api/browse` powers the server-side folder picker, `POST /api/analyze` runs the analyzer and returns the graph as JSON. Also serves the built frontend in production.
 
 ### Frontend
