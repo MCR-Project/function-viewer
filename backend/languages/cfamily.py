@@ -3,8 +3,10 @@
 C and C++ are separate plugins (separate Languages, badges and highlighting),
 but they read the same declarator syntax, the same comment conventions and
 the same `#include` directives. Everything here works on a plain tree-sitter
-tree and knows nothing about either plugin's resolution rules, so the C++
-plugin can reuse it unchanged.
+tree and knows nothing about either plugin's resolution rules. The few C++
+node shapes handled here (`&name`, `...args`, default arguments, a bare `...`
+token) never occur in a C tree, so what the C plugin gets back is unaffected
+by them.
 """
 
 from __future__ import annotations
@@ -37,6 +39,7 @@ _WRAPPER_TYPES = frozenset(
     {
         "pointer_declarator",
         "reference_declarator",
+        "variadic_declarator",
         "array_declarator",
         "function_declarator",
         "parenthesized_declarator",
@@ -44,6 +47,10 @@ _WRAPPER_TYPES = frozenset(
         "init_declarator",
     }
 )
+# C++ wrappers that carry their inner declarator as an unnamed child: `&name`, `&&name`, `...args`.
+_UNNAMED_INNER_TYPES = frozenset({"reference_declarator", "variadic_declarator"})
+# A function parameter: `int n`, and in C++ `int n = 3` and `Args &&...args`.
+PARAMETER_TYPES = frozenset({"parameter_declaration", "optional_parameter_declaration", "variadic_parameter_declaration"})
 
 
 def node_text(node: Node | None, source: bytes) -> str:
@@ -70,10 +77,14 @@ def split_lines(source: str) -> list[str]:
 
 
 def walk_top_level(node: Node, transparent: frozenset[str] = TRANSPARENT_TYPES) -> Iterator[Node]:
-    """Every top-level item under `node`, looking through preprocessor branches and linkage blocks."""
-    for child in node.children:
+    """Every top-level item under `node`, in source order, looking through preprocessor branches and linkage
+    blocks (with a stack rather than recursion, so no depth of nested `#if` can exhaust Python's).
+    """
+    stack = list(reversed(node.children))
+    while stack:
+        child = stack.pop()
         if child.type in transparent:
-            yield from walk_top_level(child, transparent)
+            stack.extend(reversed(child.children))
         else:
             yield child
 
@@ -100,6 +111,13 @@ def declarator_name(declarator: Node | None, source: bytes) -> str | None:
     return node_text(declarator_name_node(declarator), source) or None
 
 
+def _inner_declarator(declarator: Node) -> Node | None:
+    inner = declarator.child_by_field_name("declarator")
+    if inner is None and declarator.type in _UNNAMED_INNER_TYPES:
+        inner = next((c for c in declarator.named_children if c.type in _NAME_TYPES or c.type in _WRAPPER_TYPES), None)
+    return inner
+
+
 def function_declarator_of(declarator: Node | None) -> Node | None:
     """The `function_declarator` in a definition's declarator chain (`*dup(...)` wraps one in a pointer)."""
     while declarator is not None:
@@ -107,7 +125,7 @@ def function_declarator_of(declarator: Node | None) -> Node | None:
             return declarator
         if declarator.type not in _WRAPPER_TYPES:
             return None
-        declarator = declarator.child_by_field_name("declarator")
+        declarator = _inner_declarator(declarator)
     return None
 
 
@@ -130,7 +148,7 @@ def pointer_depth(declarator: Node | None) -> int:
             depth += 1
         elif declarator.type not in _WRAPPER_TYPES:
             break
-        declarator = declarator.child_by_field_name("declarator")
+        declarator = _inner_declarator(declarator)
     return depth
 
 
@@ -145,26 +163,37 @@ def extract_params(fn_declarator: Node | None, source: bytes) -> list[dict]:
     """A function declarator's parameters as {"name", "annotation", "default"}, with the C type as the annotation.
 
     `(void)` is no parameters; `...` is a parameter named `...`; an old-style `f(a, b)` name list is kept as names.
+    A C++ default argument (`int n = 3`) is the default, and a pack (`Args &&...args`) keeps its `...` in the type.
     """
     params_node = fn_declarator.child_by_field_name("parameters") if fn_declarator is not None else None
     params: list[dict] = []
     if params_node is None:
         return params
-    for child in params_node.named_children:
-        if child.type == "parameter_declaration":
+    for child in params_node.children:
+        if not child.is_named:
+            if child.type == "...":  # C++ has the C-style ellipsis as a bare token, C as a variadic_parameter
+                params.append({"name": "...", "annotation": None, "default": None})
+            continue
+        if child.type in PARAMETER_TYPES:
+            default_node = child.child_by_field_name("default_value")
+            default = None
+            end_byte = child.end_byte
+            if default_node is not None:
+                default = _collapse(node_text(default_node, source))
+                end_byte = next((c.start_byte for c in child.children if c.type == "="), default_node.start_byte)
+            raw = source[child.start_byte : end_byte]
             name_node = declarator_name_node(child.child_by_field_name("declarator"))
             if name_node is None:
-                text = _collapse(node_text(child, source))
+                text = _collapse(raw.decode("utf-8", "replace"))
                 if text == "void" and len(params_node.named_children) == 1:
                     continue
-                params.append({"name": text, "annotation": None, "default": None})
+                params.append({"name": text, "annotation": None, "default": default})
                 continue
             # the type is everything in the parameter except the name itself
             start = name_node.start_byte - child.start_byte
             end = name_node.end_byte - child.start_byte
-            raw = source[child.start_byte : child.end_byte]
             annotation = _collapse((raw[:start] + raw[end:]).decode("utf-8", "replace"))
-            params.append({"name": node_text(name_node, source), "annotation": annotation or None, "default": None})
+            params.append({"name": node_text(name_node, source), "annotation": annotation or None, "default": default})
         elif child.type == "variadic_parameter":
             params.append({"name": "...", "annotation": None, "default": None})
         elif child.type == "identifier":
