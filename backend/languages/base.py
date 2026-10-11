@@ -1,14 +1,16 @@
 """Shared types and the plugin contract every backend/languages/*.py module implements.
 
-Each language plugin gets a slice of sources (already filtered to its own
-extensions) and returns the same {"files", "functions", "edges"} shape,
-built from the same FunctionInfo schema, so the frontend contract stays
-identical no matter which languages produced it.
+Each language plugin gets a slice of sources (already filtered to the
+extensions it owns or claimed for this load) and returns the same
+{"files", "functions", "edges"} shape, built from the same FunctionInfo
+schema, so the frontend contract stays identical no matter which languages
+produced it.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 # Directories skipped while walking a disk tree, shared across all languages
@@ -86,10 +88,27 @@ class LanguagePlugin(ABC):
     id: str  # "python", "rust" - stamped onto each file/function unless the plugin sets its own
     label: str  # "Python", "Rust"
     extensions: frozenset[str]  # {".py"}, {".rs"} - dot-prefixed, lowercase
+    # Extensions this plugin MAY claim, in addition to `extensions` - dot-prefixed,
+    # lowercase. `extensions` are owned unconditionally (C keeps `.h` as the
+    # fallback); a conditional extension goes to this plugin only for a load where
+    # `claims()` says so (C++ takes `.h` when the root holds a C++-only file).
+    conditional_extensions: frozenset[str] = frozenset()
+
+    def claims(self, ext: str, paths: Collection[str]) -> bool:
+        """Whether this plugin takes files with the extension `ext` (one of its
+        `conditional_extensions`) in this load.
+
+        `paths` is every relative path (forward slashes) handed to the analyzer,
+        of any language. The dispatcher asks once per distinct extension per
+        load, in registry order; the first plugin to claim it wins, and when none
+        does the unconditional owner (`extensions`) gets the files. Default: False.
+        """
+        return False
 
     @abstractmethod
     def analyze(self, sources: dict[str, str]) -> dict:
-        """sources: rel_path (forward slashes) -> content, already filtered to `extensions`.
+        """sources: rel_path (forward slashes) -> content, already filtered to
+        `extensions` plus any `conditional_extensions` this plugin claimed.
 
         Returns {"files": [...], "functions": {...}, "edges": [...]} - the
         same shape the top-level analyzer.py dispatcher returns, scoped to
