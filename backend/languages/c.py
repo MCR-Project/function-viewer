@@ -237,7 +237,7 @@ class _CAnalyzer:
                         target = self._resolve_call(pending, node)
                         if target:
                             found.append((node.start_point[0] + 1, target))
-                    stack.extend(node.children)
+                    stack.extend(reversed(node.children))  # so calls come out in source order
             dedupe_calls(info, found)
 
     def _resolve_call(self, pending: _Pending, call: Node) -> str | None:
