@@ -9,11 +9,12 @@ file extension.
 from __future__ import annotations
 
 from .base import SKIP_DIRS, LanguagePlugin
+from .c import CLanguage
 from .python import PythonLanguage
 from .rust import RustLanguage
 from .typescript import TypeScriptLanguage
 
-LANGUAGES: list[LanguagePlugin] = [PythonLanguage(), RustLanguage(), TypeScriptLanguage()]
+LANGUAGES: list[LanguagePlugin] = [PythonLanguage(), RustLanguage(), TypeScriptLanguage(), CLanguage()]
 
 EXTENSION_TO_LANGUAGE: dict[str, LanguagePlugin] = {ext: lang for lang in LANGUAGES for ext in lang.extensions}
 

@@ -89,7 +89,7 @@ export function Sidebar() {
         />
         {error && <div className="error-box">{error}</div>}
         {!graph && !error && (
-          <div className="hint">Pick a Python or Rust file or a folder from your computer, every function inside is analyzed and its calls to other loaded functions become wires.</div>
+          <div className="hint">Pick a Python, Rust, TypeScript, JavaScript or C file or a folder from your computer, every function inside is analyzed and its calls to other loaded functions become wires.</div>
         )}
       </div>
 

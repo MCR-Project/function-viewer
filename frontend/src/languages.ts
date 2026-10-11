@@ -14,6 +14,8 @@ export interface LanguageDef {
 export const LANGUAGES: LanguageDef[] = [
   { id: "python", label: "Python", extensions: [".py"], color: "#3776ab", mono: "PY" },
   { id: "rust", label: "Rust", extensions: [".rs"], color: "#dea584", mono: "RS" },
+  // A C definition always states its return type, so there is no "unannotated" case to show as None.
+  { id: "c", label: "C", extensions: [".c", ".h"], color: "#a8b9cc", mono: "C", unannotatedReturn: null },
   // The superset grammars: they also cover JSX/TSX markup, and highlight plain code the same.
   // A missing return annotation there means "not stated", not "returns nothing".
   {
