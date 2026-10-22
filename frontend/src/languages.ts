@@ -16,6 +16,16 @@ export const LANGUAGES: LanguageDef[] = [
   { id: "rust", label: "Rust", extensions: [".rs"], color: "#dea584", mono: "RS" },
   // A C definition always states its return type, so there is no "unannotated" case to show as None.
   { id: "c", label: "C", extensions: [".c", ".h"], color: "#a8b9cc", mono: "C", unannotatedReturn: null },
+  // `.h` stays on C as the fallback: the backend makes a header C++ only when the same root holds C++
+  // files, and the frontend reads the language off each file and function, never off its extension.
+  {
+    id: "cpp",
+    label: "C++",
+    extensions: [".cc", ".cpp", ".cxx", ".hpp", ".hh", ".hxx"],
+    color: "#659ad2",
+    mono: "C++",
+    unannotatedReturn: null,
+  },
   // The superset grammars: they also cover JSX/TSX markup, and highlight plain code the same.
   // A missing return annotation there means "not stated", not "returns nothing".
   {

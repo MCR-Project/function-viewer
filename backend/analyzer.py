@@ -1,6 +1,10 @@
 """Multi-language dispatcher: groups sources by extension, hands each slice
 to its language plugin (see backend/languages/), and merges the results.
 
+An extension goes to the first plugin that claims it for this load through
+`conditional_extensions` / `claims()` (C++ taking `.h` when the root holds a
+C++-only file), and otherwise to its unconditional owner.
+
 Every plugin returns the same {"files", "functions", "edges"} shape (see
 backend/languages/base.py), so merging across languages is just
 concatenation - function/file ids are already namespaced by file path, so
@@ -12,8 +16,10 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Collection
 
 from .languages import EXTENSION_TO_LANGUAGE, LANGUAGES, SKIP_DIRS, SUPPORTED_EXTENSIONS
+from .languages.base import LanguagePlugin
 
 
 def _collect_source_files(root: str) -> list[str]:
@@ -29,15 +35,27 @@ def _collect_source_files(root: str) -> list[str]:
     return found
 
 
+def _owner(ext: str, paths: Collection[str]) -> LanguagePlugin | None:
+    """The plugin that takes `ext` in this load: the first (registry order) to
+    claim it conditionally, otherwise its unconditional owner."""
+    for lang in LANGUAGES:
+        if ext in lang.conditional_extensions and lang.claims(ext, paths):
+            return lang
+    return EXTENSION_TO_LANGUAGE.get(ext)
+
+
 def analyze_sources(sources: dict[str, str], root: str = "") -> dict:
     """Analyze in-memory sources, e.g. files picked and read in the browser.
 
     sources: rel_path (forward slashes) -> file content, already read.
     """
     by_language: dict[str, dict[str, str]] = {}
+    owners: dict[str, LanguagePlugin | None] = {}
     for rel_path, content in sources.items():
         ext = os.path.splitext(rel_path)[1]
-        lang = EXTENSION_TO_LANGUAGE.get(ext)
+        if ext not in owners:
+            owners[ext] = _owner(ext, sources.keys())
+        lang = owners[ext]
         if lang is None:
             continue
         by_language.setdefault(lang.id, {})[rel_path] = content

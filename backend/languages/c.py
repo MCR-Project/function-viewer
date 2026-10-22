@@ -1,6 +1,7 @@
 """C language plugin: tree-sitter-based analysis of C source trees.
 
-Owns `.c` and `.h` (until C++ lands, a header is always C). Nothing is
+Owns `.c` and `.h`, except that the C++ plugin claims `.h` when the picked
+root contains a C++-only extension; a C-only root is unaffected. Nothing is
 preprocessed or compiled: the plugin reads the text of each file as written,
 and resolves calls by name, following the way a C program's names are
 actually visible.

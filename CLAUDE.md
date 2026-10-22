@@ -42,7 +42,7 @@ There is **no test suite**. Verify by hand:
 
 - Frontend: `docker compose exec frontend npm run build` and `docker compose exec frontend npm run lint` (or run them in `frontend/` without Docker).
 - Backend: with `docker compose up` running, `GET localhost:8000/api/health`.
-- Analyzer or language-plugin changes: `docker compose exec backend python -m backend.analyzer <path>` on `sample_project`, `sample_rust_project`, `sample_typescript_project` and `sample_c_project` before and after, and compare function and edge counts. An unexplained drop in edges is a regression.
+- Analyzer or language-plugin changes: `docker compose exec backend python -m backend.analyzer <path>` on `sample_project`, `sample_rust_project`, `sample_typescript_project`, `sample_c_project` and `sample_cpp_project` before and after, and compare function and edge counts. An unexplained drop in edges is a regression.
 
 CI (`.github/workflows/pr-checks.yml`) only runs the frontend build and the backend health check. It does not lint and does not exercise the analyzer, so green CI says little about analysis correctness.
 
@@ -54,6 +54,7 @@ CI (`.github/workflows/pr-checks.yml`) only runs the frontend build and the back
 - **The theme is applied in two places.** The inline script in `frontend/index.html` sets `data-theme` before first paint, and `frontend/src/theme.ts` owns it afterwards. They share the storage key and the resolution rules; keep them in sync. Colors belong in the tokens at the top of `index.css`, never as literals (the function card header and the language badge text are the deliberately theme-independent surfaces).
 - **Paths must be relative to the picked folder's contents**, with the folder's own name stripped (`localFiles.ts`). Module-name derivation and import resolution in the plugins depend on it.
 - **Vocabulary lives in `CONTEXT.md`; use its terms.** The code hasn't caught up on two of them: **File mode** is still `"folder"` in the code (`OrgMode`, `FolderFrame`, `layoutFolderGraph`), and **Trace up / Trace down** is still `showFlow`. Don't rename these as a drive-by; use the glossary term in prose and the code name in code.
+- **`.h` is C or C++ per load, not per file.** The C++ plugin's `claims()` takes every `.h` when the picked root holds any C++-only extension (`.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh`, `.hxx`), so the same header is C in one project and C++ in another, and one load's headers never split between the two.
 - Function and file ids are namespaced by file path so languages can't collide when merged.
 - Only calls between functions that were actually loaded are resolved. Calls inside Rust macro invocations are invisible.
 - CORS is `*` on purpose: the GitHub Pages frontend calls the Render API cross-origin.
