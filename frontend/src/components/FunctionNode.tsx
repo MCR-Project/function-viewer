@@ -5,6 +5,7 @@ import "prismjs/components/prism-python";
 import "prismjs/components/prism-rust";
 import "prismjs/components/prism-c";
 import "prismjs/components/prism-cpp";
+import "prismjs/components/prism-java";
 import "prismjs/components/prism-typescript";
 import "prismjs/components/prism-jsx";
 import "prismjs/components/prism-tsx";
@@ -96,6 +97,7 @@ function FunctionNodeInner({ data, selected }: NodeProps<FunctionNodeType>) {
         <div className="fn-title">
           <div className="fn-name">
             {fn.isAsync && <span className="async-badge">ASYNC</span>}
+            {fn.className?.includes(".") && <span className="nested-badge">NESTED</span>}
             {fn.qualname}
           </div>
           <Signature fn={fn} />

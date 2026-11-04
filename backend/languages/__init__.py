@@ -12,11 +12,19 @@ from __future__ import annotations
 from .base import SKIP_DIRS, LanguagePlugin
 from .c import CLanguage
 from .cpp import CppLanguage
+from .java import JavaLanguage
 from .python import PythonLanguage
 from .rust import RustLanguage
 from .typescript import TypeScriptLanguage
 
-LANGUAGES: list[LanguagePlugin] = [PythonLanguage(), RustLanguage(), TypeScriptLanguage(), CLanguage(), CppLanguage()]
+LANGUAGES: list[LanguagePlugin] = [
+    PythonLanguage(),
+    RustLanguage(),
+    TypeScriptLanguage(),
+    CLanguage(),
+    CppLanguage(),
+    JavaLanguage(),
+]
 
 # Each extension's unconditional owner; a plugin's `conditional_extensions` are not in here (see analyzer.py).
 EXTENSION_TO_LANGUAGE: dict[str, LanguagePlugin] = {ext: lang for lang in LANGUAGES for ext in lang.extensions}
