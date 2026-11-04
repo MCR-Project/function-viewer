@@ -27,6 +27,7 @@ The goal is to make the flow of a codebase visible instead of jumping between fi
 | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` |
 | C | `.c`, `.h` (unless the folder also holds C++ files) |
 | C++ | `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh`, `.hxx`, plus `.h` when the folder also holds C++ files |
+| Java | `.java` |
 
 More languages can be added without touching the frontend - see [Backend](#backend) below.
 
