@@ -37,16 +37,22 @@ lambda is written in, not dropped the way a nested function's calls are in
 python.py - lambdas are Java's idiomatic callback/stream shape, not a rare
 local-helper pattern.
 
-`Type` in any of the above is looked up: first among same-package classes
-(no import needed, a nested class reachable by its own simple name or by
-`Outer.Inner`), then through this file's own named imports
-(`import pkg.Type;`), then as a last resort by simple name project-wide
-(mirroring the Rust plugin's crate-wide fallback) - which also covers a
-wildcard import (`import pkg.*;`) or one that only brings in a type's static
-members, without a dedicated table for either. A step that finds more than
-one same-named candidate does not guess; static-member imports
-(`import static pkg.Type.member;`) are not resolved at all. Nothing is
-preprocessed: a record's implicit components, accessors and canonical
+`Type` in any of the above is looked up: first as a nested type of the
+enclosing class itself (real Java lexical scoping - this wins even when
+another, unrelated class elsewhere in the package has a nested type of the
+same simple name), then among same-package classes (no import needed, a
+nested class reachable by its own simple name or by `Outer.Inner`), then
+through this file's own named imports (`import pkg.Type;`), then as a last
+resort by simple name project-wide (mirroring the Rust plugin's crate-wide
+fallback) - which also covers a wildcard import (`import pkg.*;`) or one
+that only brings in a type's static members, without a dedicated table for
+either. A fully package-qualified reference (`new com.example.Thing()`)
+matches an exact same `fqn` outright; one that doesn't is still tried by its
+last segment alone, the same precision-for-completeness tradeoff as the
+simple-name fallback. A step that finds more than one same-named candidate
+does not guess; static-member imports (`import static pkg.Type.member;`)
+are not resolved at all. Nothing is preprocessed: a record's implicit
+components, accessors and canonical
 constructor are not Functions unless written out by hand, and a compact
 constructor (`public Point { ... }`, no parameter list) is not recognised.
 """
@@ -98,18 +104,30 @@ def _text(node: Node | None, source: bytes) -> str:
 
 
 def _flatten_scoped(node: Node, source: bytes) -> str:
-    """`com.example.Foo` (a scoped_identifier/scoped_type_identifier chain) -> that dotted text; a bare identifier -> itself."""
-    if node.type in ("scoped_identifier", "scoped_type_identifier"):
+    """`com.example.Foo` -> that dotted text; a bare identifier -> itself.
+
+    `scoped_identifier` (a package/import path, or a qualifier used as an
+    expression) exposes `scope`/`name` fields; `scoped_type_identifier` (the
+    same dotted shape used in *type* position - a declared type, `new
+    Foo.Bar(...)`, `Foo.Bar.staticCall()`) does not - tree-sitter-java gives
+    it only positional children, so its last two are its own prefix and name.
+    """
+    if node.type == "scoped_identifier":
         scope = node.child_by_field_name("scope")
         name = node.child_by_field_name("name")
         prefix = _flatten_scoped(scope, source) if scope is not None else ""
         suffix = _text(name, source)
         return f"{prefix}.{suffix}" if prefix else suffix
+    if node.type == "scoped_type_identifier":
+        parts = [c for c in node.children if c.type in ("scoped_type_identifier", "type_identifier")]
+        if len(parts) == 2:
+            return f"{_flatten_scoped(parts[0], source)}.{_text(parts[1], source)}"
+        return _text(node, source)
     return _text(node, source)
 
 
 def _base_type_name(node: Node | None, source: bytes) -> str:
-    """Unwraps `Generic<T>` / `T[]` down to the plain type name text."""
+    """Unwraps `Generic<T>` / `T[]` down to the plain type name text (dotted, if qualified)."""
     if node is None:
         return ""
     while node.type in ("generic_type", "array_type"):
@@ -117,9 +135,8 @@ def _base_type_name(node: Node | None, source: bytes) -> str:
         if inner is None:
             break
         node = inner
-    if node.type == "scoped_type_identifier":
-        name = node.child_by_field_name("name")
-        return _text(name, source) if name is not None else _text(node, source)
+    if node.type in ("scoped_type_identifier", "scoped_identifier"):
+        return _flatten_scoped(node, source)
     return _text(node, source)
 
 
@@ -283,6 +300,13 @@ class _Resolver:
         self._source = analyzer.sources_bytes[mod.rel_path]
 
     def _resolve_type(self, name: str) -> _ClassInfo | None:
+        """A nested type of the enclosing class itself (`Inner` from inside `Outer`, any depth of
+        `name`) wins over every other candidate - that's what real Java lexical scoping does, and
+        it sidesteps a same-simple-name nested class elsewhere in the package being ambiguous."""
+        if name:
+            direct = self._analyzer.classes_by_fqn.get(f"{self._class_info.fqn}.{name.rsplit('.', 1)[-1]}")
+            if direct is not None:
+                return direct
         return self._analyzer.resolve_type(self._mod, name)
 
     def _receiver_type(self, node: Node) -> _ClassInfo | None:
@@ -480,16 +504,27 @@ class _JavaAnalyzer:
     # -- pass 2: resolve calls --
 
     def resolve_type(self, mod: _ModuleInfo, name: str) -> _ClassInfo | None:
-        """Same package (no import needed) -> this file's named imports -> project-wide by simple name, if unique."""
+        """Same package (no import needed) -> this file's named imports -> project-wide by simple name, if unique.
+
+        `name` may be a bare simple name, a same-file qualified nested path ("Outer.Inner"), or a
+        fully package-qualified reference ("com.example.Thing"): an exact fqn match wins outright,
+        then the dotted or simple suffix is looked up in `classes_by_simple` (a package-qualified
+        reference that isn't exactly one of our classes falls back to matching by its last segment
+        alone, the same "give up precision before giving up entirely" tradeoff the Rust plugin makes
+        for a `use` path that isn't exactly one level below its crate root).
+        """
         if not name:
             return None
-        candidates = self.classes_by_simple.get(name, [])
+        if name in self.classes_by_fqn:
+            return self.classes_by_fqn[name]
+        simple = name.rsplit(".", 1)[-1]
+        candidates = self.classes_by_simple.get(name) or self.classes_by_simple.get(simple) or []
         if not candidates:
             return None
         same_package = [c for c in candidates if self.classes_by_fqn[c].package == mod.package]
         if len(same_package) == 1:
             return self.classes_by_fqn[same_package[0]]
-        imported = mod.imports.get(name)
+        imported = mod.imports.get(simple)
         if imported in self.classes_by_fqn:
             return self.classes_by_fqn[imported]
         if len(candidates) == 1:
