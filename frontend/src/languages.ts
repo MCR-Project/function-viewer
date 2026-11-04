@@ -46,6 +46,8 @@ export const LANGUAGES: LanguageDef[] = [
     prism: "jsx",
     unannotatedReturn: null,
   },
+  // A Java declaration always states its return type, so there is no "unannotated" case to show as None.
+  { id: "java", label: "Java", extensions: [".java"], color: "#b07219", mono: "JV", unannotatedReturn: null },
 ];
 
 /** Flat extension list, also used as the file picker's `accept` attribute. */

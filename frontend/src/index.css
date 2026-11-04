@@ -15,6 +15,7 @@
   --hdr-text-dim: #8497ad;
   --hdr-accent: #35c9dd;
   --lock: #f0b849;
+  --nested: #9d7bd8;
 }
 
 :root,
@@ -830,6 +831,18 @@ body {
   font-weight: 600;
   color: var(--lock);
   border: 1px solid var(--lock);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-right: 6px;
+  vertical-align: 2px;
+  letter-spacing: 0.08em;
+}
+
+.fn-header .fn-name .nested-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--nested);
+  border: 1px solid var(--nested);
   border-radius: 3px;
   padding: 1px 4px;
   margin-right: 6px;
